@@ -1,4 +1,11 @@
 type identifier = Identifier of string
+
+module Identifier = struct
+  type t = identifier
+
+  let compare (Identifier i) (Identifier j) = String.compare i j
+end
+
 type basic_expr = Integer of int | Boolean of bool | Identifier of identifier
 type unary_operator = Not | Negate | AbsoluteValue
 type node_reference = Node of int
