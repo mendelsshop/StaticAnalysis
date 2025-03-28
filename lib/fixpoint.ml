@@ -16,12 +16,19 @@ module Fixpoint (L : Lattice.T) = struct
 
   (*TODO: is using set for worklist fine, as that means no duplicates*)
   let run graph f =
-    let state = NodeMap.empty in
+    let state =
+      graph.nodes |> List.map (fun n -> (n, L.bottom)) |> NodeMap.of_list
+    in
     let rec fix worklist state =
       match NodeSet.elements worklist with
       | [] -> state
       | node :: worklist ->
-          let curent_state = failwith "current state" in
+          let preds = NodeMap.find node graph.predecesseors in
+          let curent_state =
+            preds |> List.map snd
+            |> List.map ((NodeMap.find |> Fun.flip) state)
+            |> List.fold_left L.join L.bottom
+          in
           let y = f node curent_state in
           let worklist' = worklist |> NodeSet.of_list in
           if y = curent_state then fix worklist' state
@@ -32,7 +39,7 @@ module Fixpoint (L : Lattice.T) = struct
               (NodeSet.union
                  (List.map (fun (_, s) -> s) succesors |> NodeSet.of_list)
                  worklist')
-              (failwith "new state")
+              (NodeMap.add node curent_state state)
     in
     fix (graph.nodes |> NodeSet.of_list) state
 end
