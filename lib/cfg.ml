@@ -51,6 +51,6 @@ module NodeMap = Map.Make (Node)
 
 type graph = {
   nodes : node list;
-  successors : (edge * node) NodeMap.t;
-  predecesseors : (edge * node) NodeMap.t;
+  successors : (edge * node) list NodeMap.t;
+  predecesseors : (edge * node) list NodeMap.t;
 }
