@@ -53,7 +53,7 @@ module Number = struct
     | Integer l, Integer r -> Integer (max l r)
 end
 
-module Interval : T = struct
+module Interval  = struct
   type t = Interval of Number.t * Number.t | Bottom
 
   let bottom = Bottom
