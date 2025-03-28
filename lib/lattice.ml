@@ -9,6 +9,22 @@ module type T = sig
   val meet : t -> t -> t
 end
 
+(*TODO: map lattic doesn't have top, need to make lattice hierarchy*)
+module MapLattice (M : Map.S) (L : T) = struct
+  type t = L.t M.t
+
+  let point_wise f =
+    M.merge (fun _ x y ->
+        f (Option.value ~default:L.bottom y) (Option.value ~default:L.bottom x)
+        |> Option.some)
+
+  let bottom = M.empty
+  let join = point_wise L.join
+  let meet = point_wise L.meet
+  let leq = M.equal L.leq
+  let eq = M.equal L.eq
+end
+
 module Number = struct
   type t = Integer of int | PInfinity | NInfinity
 
