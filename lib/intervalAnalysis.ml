@@ -1,7 +1,6 @@
 open Fixpoint
 open Cfg
 open Lattice
-module IntervalMap = MapLattice (VariableMap) (Interval)
 open Make (Interval)
 
 let eval_expr (e : Cfg.basic_expr) s =
