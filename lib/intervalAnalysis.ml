@@ -1,7 +1,8 @@
 open Fixpoint
 open Cfg
 open Lattice
-open Make (Interval)
+module IntervalMap = MapLattice (VariableMap) (Interval)
+open Make (IntervalMap)
 
 let eval_expr (e : Cfg.basic_expr) s =
   match e with
@@ -18,7 +19,6 @@ let eval_expr (e : Cfg.expr) s =
 let transfer (n : node) s =
   match n.command with
   | Cfg.Assign { target; value } -> VariableMap.add target (eval_expr value s) s
-  | Cfg.Variable _ -> failwith ""
   | Cfg.Cond _ -> failwith ""
 
 let run = (Fun.flip run) transfer

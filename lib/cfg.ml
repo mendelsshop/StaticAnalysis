@@ -33,11 +33,7 @@ type expr =
       right : basic_expr;
     }
 
-type command =
-  | Assign of { target : identifier; value : expr }
-  | Variable of identifier
-  | Cond of expr
-
+type command = Assign of { target : identifier; value : expr } | Cond of expr
 type edge = Directed | True | False
 type node = { id : int; command : command }
 

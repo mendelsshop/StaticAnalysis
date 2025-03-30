@@ -2,19 +2,13 @@ open Cfg
 module VariableMap = Map.Make (Identifier)
 module NodeSet = Set.Make (Node)
 
-module Make (L : Lattice.T) = struct
-  (*TODO: 
-     we should have to explictly use a map lattice here it should be up the functor caller to dso 
-    but, map lattice doesn't have top, need to make lattice hierarchy
-  *)
-  module State = Lattice.MapLattice (VariableMap) (L)
-
-  type state = State.t NodeMap.t
+module Make (L : Lattice.JoinSemiLattice) = struct
+  type state = L.t NodeMap.t
 
   (*TODO: is using set for worklist fine, as that means no duplicates*)
   let run graph f =
     let state =
-      graph.nodes |> List.map (fun n -> (n, State.bottom)) |> NodeMap.of_list
+      graph.nodes |> List.map (fun n -> (n, L.bottom)) |> NodeMap.of_list
     in
     let rec fix worklist (state : state) =
       match NodeSet.elements worklist with
@@ -24,7 +18,7 @@ module Make (L : Lattice.T) = struct
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeMap.find |> Fun.flip) state)
-            |> List.fold_left State.join State.bottom
+            |> List.fold_left L.join L.bottom
           in
           let y = f node curent_state in
           let worklist' = worklist |> NodeSet.of_list in

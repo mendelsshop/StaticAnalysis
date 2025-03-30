@@ -1,16 +1,37 @@
-module type T = sig
+module type Set = sig
   type t
 
-  val bottom : t
-  val top : t
-  val leq : t -> t -> bool
   val eq : t -> t -> bool
+end
+
+module type PartiallyOrderdSet = sig
+  include Set
+
+  val leq : t -> t -> bool
+end
+
+module type JoinSemiLattice = sig
+  include PartiallyOrderdSet
+
+  val bottom : t
   val join : t -> t -> t
+end
+
+module type MeetSemiLattice = sig
+  include PartiallyOrderdSet
+
+  val top : t
   val meet : t -> t -> t
 end
 
-(*TODO: map lattic doesn't have top, need to make lattice hierarchy*)
-module MapLattice (M : Map.S) (L : T) = struct
+module type Lattice = sig
+  type t
+
+  include JoinSemiLattice with type t := t
+  include MeetSemiLattice with type t := t
+end
+
+module MapLattice (M : Map.S) (L : Lattice) = struct
   type t = L.t M.t
 
   let point_wise f =
