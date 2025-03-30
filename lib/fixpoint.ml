@@ -2,7 +2,12 @@ open Cfg
 module VariableMap = Map.Make (Identifier)
 module NodeSet = Set.Make (Node)
 
-module Make (L : Lattice.JoinSemiLattice) = struct
+module Make
+    (L : Lattice.JoinSemiLattice)
+    (U : sig
+      val update : node -> L.t -> L.t -> L.t
+    end) =
+struct
   type state = L.t NodeMap.t
 
   (*TODO: is using set for worklist fine, as that means no duplicates*)
@@ -30,7 +35,21 @@ module Make (L : Lattice.JoinSemiLattice) = struct
               (NodeSet.union
                  (List.map (fun (_, s) -> s) succesors |> NodeSet.of_list)
                  worklist')
-              (NodeMap.add node curent_state state)
+              (NodeMap.add node (U.update node y curent_state) state)
     in
     fix (graph.nodes |> NodeSet.of_list) state
 end
+
+module Default (L : Lattice.JoinSemiLattice) =
+  Make
+    (L)
+    (struct
+      let update _ _ n = n
+    end)
+
+module Widen (L : Lattice.WidenNarrowJoinSemiLattice) =
+  Make
+    (L)
+    (struct
+      let update _ old news = L.widen old news
+    end)

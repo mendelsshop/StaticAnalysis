@@ -10,11 +10,25 @@ module type PartiallyOrderdSet = sig
   val leq : t -> t -> bool
 end
 
+module type WidenNarrow = sig
+  type t
+
+  val widen : t -> t -> t
+  val narrow : t -> t -> t
+end
+
 module type JoinSemiLattice = sig
   include PartiallyOrderdSet
 
   val bottom : t
   val join : t -> t -> t
+end
+
+module type WidenNarrowJoinSemiLattice = sig
+  type t
+
+  include JoinSemiLattice with type t := t
+  include WidenNarrow with type t := t
 end
 
 module type MeetSemiLattice = sig
@@ -24,11 +38,25 @@ module type MeetSemiLattice = sig
   val meet : t -> t -> t
 end
 
+module type WidenNarrowMeetSemiLattice = sig
+  type t
+
+  include MeetSemiLattice with type t := t
+  include WidenNarrow with type t := t
+end
+
 module type Lattice = sig
   type t
 
   include JoinSemiLattice with type t := t
   include MeetSemiLattice with type t := t
+end
+
+module type WidenNarrowLattice = sig
+  type t
+
+  include Lattice with type t := t
+  include WidenNarrow with type t := t
 end
 
 module MapLattice (M : Map.S) (L : Lattice) = struct
@@ -44,6 +72,13 @@ module MapLattice (M : Map.S) (L : Lattice) = struct
   let meet = point_wise L.meet
   let leq = M.equal L.leq
   let eq = M.equal L.eq
+end
+
+module WidenNarrowMapLattice (M : Map.S) (L : WidenNarrowLattice) = struct
+  include MapLattice (M) (L)
+
+  let widen = point_wise L.widen
+  let narrow = point_wise L.narrow
 end
 
 module Number = struct
@@ -106,4 +141,20 @@ module Interval = struct
         let max = Number.max l1 r1 in
         let min = Number.min l2 r2 in
         if Number.leq max min then Interval (max, min) else Bottom
+
+  let widen l r =
+    match (l, r) with
+    | Bottom, t | t, Bottom -> t
+    | Interval (l1, l2), Interval (r1, r2) ->
+        let l3 = if Number.leq l1 r1 then l1 else NInfinity in
+        let r3 = if Number.leq r2 l2 then l2 else PInfinity in
+        Interval (l3, r3)
+
+  let narrow l r =
+    match (l, r) with
+    | Bottom, _ | _, Bottom -> Bottom
+    | Interval (l1, l2), Interval (r1, r2) ->
+        let l3 = if l1 = NInfinity then r1 else l1 in
+        let r3 = if l2 = PInfinity then r2 else l2 in
+        Interval (l3, r3)
 end
