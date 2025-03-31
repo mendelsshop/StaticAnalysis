@@ -59,26 +59,122 @@ module type WidenNarrowLattice = sig
   include WidenNarrow with type t := t
 end
 
-module MapLattice (M : Map.S) (L : Lattice) = struct
-  type t = L.t M.t
+module Map = struct
+  module MapSet (M : Map.S) (L : Set) = struct
+    type t = L.t M.t
 
-  let point_wise f =
-    M.merge (fun _ x y ->
-        f (Option.value ~default:L.bottom y) (Option.value ~default:L.bottom x)
-        |> Option.some)
+    let eq = M.equal L.eq
+  end
 
-  let bottom = M.empty
-  let join = point_wise L.join
-  let meet = point_wise L.meet
-  let leq = M.equal L.leq
-  let eq = M.equal L.eq
+  module MapPartiallyOrderdSet (M : Map.S) (L : PartiallyOrderdSet) = struct
+    include MapSet (M) (L)
+
+    let leq = M.equal L.leq
+  end
+
+  module MapJoinSemiLattice (M : Map.S) (L : JoinSemiLattice) = struct
+    let point_wise f =
+      M.merge (fun _ x y ->
+          f
+            (Option.value ~default:L.bottom y)
+            (Option.value ~default:L.bottom x)
+          |> Option.some)
+
+    include MapPartiallyOrderdSet (M) (L)
+
+    let bottom = M.empty
+    let join = point_wise L.join
+  end
+
+  module MapWidenNarrowJoinSemiLattice
+      (M : Map.S)
+      (L : WidenNarrowJoinSemiLattice) =
+  struct
+    include MapJoinSemiLattice (M) (L)
+
+    let widen = point_wise L.widen
+    let narrow = point_wise L.narrow
+  end
+
+  (*doesn't have top*)
+
+  module MapLattice (M : Map.S) (L : Lattice) = struct
+    include MapJoinSemiLattice (M) (L)
+
+    let meet = point_wise L.meet
+  end
+
+  module MapWidenNarrowLattice (M : Map.S) (L : WidenNarrowLattice) = struct
+    include MapWidenNarrowJoinSemiLattice (M) (L)
+    include MapLattice (M) (L)
+  end
 end
 
-module WidenNarrowMapLattice (M : Map.S) (L : WidenNarrowLattice) = struct
-  include MapLattice (M) (L)
+module Product = struct
+  module ProductSet (L : Set) (L1 : Set) = struct
+    type t = L.t * L1.t
 
-  let widen = point_wise L.widen
-  let narrow = point_wise L.narrow
+    let pair_wise f1 f2 (l1, l2) (r1, r2) = (f1 l1 r1, f2 l2 r2)
+    let eq (l1, l2) (r1, r2) = L.eq l1 r1 && L1.eq l2 r2
+  end
+
+  module ProductPartiallyOrderdSet
+      (L : PartiallyOrderdSet)
+      (L1 : PartiallyOrderdSet) =
+  struct
+    include ProductSet (L) (L1)
+
+    let leq (l1, l2) (r1, r2) = L.leq l1 r1 && L1.leq l2 r2
+  end
+
+  module ProductJoinSemiLattice (L : JoinSemiLattice) (L1 : JoinSemiLattice) =
+  struct
+    include ProductPartiallyOrderdSet (L) (L1)
+
+    let bottom = (L.bottom, L1.bottom)
+    let join = pair_wise L.join L1.join
+  end
+
+  module ProductMeetSemiLattice (L : MeetSemiLattice) (L1 : MeetSemiLattice) =
+  struct
+    include ProductPartiallyOrderdSet (L) (L1)
+
+    let bottom = (L.top, L1.top)
+    let join = pair_wise L.meet L1.meet
+  end
+
+  module ProductWidenNarrowJoinSemiLattice
+      (L : WidenNarrowJoinSemiLattice)
+      (L1 : WidenNarrowJoinSemiLattice) =
+  struct
+    include ProductJoinSemiLattice (L) (L1)
+
+    let widen = pair_wise L.widen L1.widen
+    let narrow = pair_wise L.widen L1.widen
+  end
+
+  module ProductWidenNarrowMeetSemiLattice
+      (L : WidenNarrowMeetSemiLattice)
+      (L1 : WidenNarrowMeetSemiLattice) =
+  struct
+    include ProductMeetSemiLattice (L) (L1)
+
+    let widen = pair_wise L.widen L1.widen
+    let narrow = pair_wise L.widen L1.widen
+  end
+
+  module ProductLattice (L : Lattice) (L1 : Lattice) = struct
+    include ProductMeetSemiLattice (L) (L1)
+    include ProductJoinSemiLattice (L) (L1)
+  end
+
+  module WidenNarrowProductLattice
+      (L : WidenNarrowLattice)
+      (L1 : WidenNarrowLattice) =
+  struct
+    include ProductWidenNarrowMeetSemiLattice (L) (L1)
+    include ProductWidenNarrowJoinSemiLattice (L) (L1)
+  end
 end
 
 module Number = struct
@@ -157,4 +253,35 @@ module Interval = struct
         let l3 = if l1 = NInfinity then r1 else l1 in
         let r3 = if l2 = PInfinity then r2 else l2 in
         Interval (l3, r3)
+end
+
+module Boolean = struct
+  type t = Boolean of bool | Bottom | Top
+
+  let bottom = Bottom
+  let top = Top
+  let eq = ( = )
+
+  let leq l r =
+    match (l, r) with
+    | Bottom, _ -> true
+    | _, Bottom -> false
+    | Top, _ -> false
+    | _, Top -> true
+    | Boolean l, Boolean r -> l = r
+
+  let join l r =
+    match (l, r) with
+    | i, Bottom | Bottom, i -> i
+    | Top, _ | _, Top -> Top
+    | Boolean l, Boolean r -> if l = r then Boolean l else Top
+
+  let meet l r =
+    match (l, r) with
+    | _, Bottom | Bottom, _ -> Bottom
+    | Top, i | i, Top -> i
+    | Boolean l, Boolean r -> if l = r then Boolean l else Bottom
+
+  let widen = join
+  let narrow = meet
 end
