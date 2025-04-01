@@ -6,17 +6,16 @@ module Identifier = struct
   let compare (Identifier i) (Identifier j) = String.compare i j
 end
 
-type basic_expr = Integer of int | Boolean of bool | Identifier of identifier
-type unary_operator = Not | Negate | AbsoluteValue
+(*TODO: maybe you gadts for expr*)
+type basic_bool_expr = Boolean of bool | Identifier of identifier
+type basic_int_expr = Integer of int | Identifier of identifier
+type int_unary_operator = Negate | AbsoluteValue
+type bool_unary_operator = No
 type node_reference = Node of int
+type int_binary_operator = Add | Subtract | Multiply | Divide
+type bool_binary_operator = And | Or
 
-type binary_operator =
-  | Add
-  | Subtract
-  | Multiply
-  | Divide
-  | And
-  | Or
+type comparison =
   | LessThen
   | GreaterThan
   | LessThenOrEqual
@@ -24,16 +23,37 @@ type binary_operator =
   | Equal
   | NotEqual
 
-type expr =
-  | Basic of basic_expr
-  | UnaryOperator of { operator : unary_operator; operand : basic_expr }
+type bool_expr =
+  | Basic of basic_bool_expr
+  | UnaryOperator of {
+      operator : bool_unary_operator;
+      operand : basic_bool_expr;
+    }
   | BinaryOperator of {
-      left : basic_expr;
-      operator : binary_operator;
-      right : basic_expr;
+      left : basic_bool_expr;
+      operator : bool_binary_operator;
+      right : basic_bool_expr;
+    }
+  | Compare of {
+      left : basic_int_expr;
+      operator : comparison;
+      right : basic_int_expr;
     }
 
-type command = Assign of { target : identifier; value : expr } | Cond of expr
+type int_expr =
+  | Basic of basic_int_expr
+  | UnaryOperator of { operator : int_unary_operator; operand : basic_int_expr }
+  | BinaryOperator of {
+      left : basic_int_expr;
+      operator : int_binary_operator;
+      right : basic_int_expr;
+    }
+
+type command =
+  | AssignInt of { target : identifier; value : int_expr }
+  | AssignBool of { target : identifier; value : bool_expr }
+  | Cond of bool_expr
+
 type edge = Directed | True | False
 type node = { id : int; command : command }
 
