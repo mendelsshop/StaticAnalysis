@@ -16,18 +16,89 @@ let eval_simple_bool_expr (e : Cfg.basic_bool_expr) s =
   | Boolean b -> Boolean.Boolean b
   | Identifier i -> VariableMap.find i (snd s)
 
+let abs = function
+  | Interval.Bottom -> Interval.Bottom
+  | Interval (x, y) ->
+      let abs = function
+        | Number.NInfinity -> (true, Number.PInfinity)
+        | Number.Integer n when n < 0 -> (true, Number.Integer (-n))
+        | n -> (false, n)
+      in
+      let x_neg, x' = abs x in
+      let y_neg, y' = abs y in
+      (*if both negative then when you flip signs [-11, -5] to [11, 5] so you have to swicth order to [5, 11]*)
+      if x_neg && y_neg then Interval (y', x')
+        (*if we cross sign bondries like [-7. 5] then we automatically have to start at 0 and go to at least the y, or the -x if its bigger
+        if not we would get something like: [5, 7] or [7, 5] in which case we would be making our abstraction invalid*)
+      else if x_neg then Interval (Number.Integer 0, Number.max x' y')
+      (*otherwise we have to positive integer so nothing changed*)
+        else Interval (x', y')
+
+let negate = function
+  | Interval.Bottom -> Interval.Bottom
+  | Interval (x, y) ->
+      let negate = function
+        | Number.NInfinity -> Number.PInfinity
+        | Number.Integer n -> Number.Integer (-n)
+        | Number.PInfinity -> Number.NInfinity
+      in
+      let x' = negate x in
+      let y' = negate y in
+      Interval (Number.min x' y', Number.max x' y')
+
+let do_binary_int_op f x y =
+  match (x, y) with
+  | _, Interval.Bottom | Interval.Bottom, _ -> Interval.Bottom
+  (*we do not implicitly wrap call to f in interval because it might fail (become bottom)*)
+  | Interval.Interval (x1, x2), Interval.Interval (y1, y2) -> f (x1, x2) (y1, y2)
+
+let add =
+  let add x y =
+    match (x, y) with
+    | _, Number.NInfinity | Number.NInfinity, _ -> Number.NInfinity
+    | _, Number.PInfinity | Number.PInfinity, _ -> Number.PInfinity
+    | Number.Integer x, Number.Integer y -> Number.Integer (x + y)
+  in
+  do_binary_int_op (fun (x1, x2) (y1, y2) ->
+      Interval.Interval (add x1 y1, add x2 y2))
+
 let eval_int_expr (e : Cfg.int_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_int_expr e s
-  | Cfg.UnaryOperator _ -> failwith ""
-  | Cfg.BinaryOperator _ -> failwith ""
+  | Cfg.UnaryOperator { operator; operand } -> (
+      let operand' = eval_simple_int_expr operand s in
+      match operator with
+      | Negate -> negate operand'
+      | AbsoluteValue -> abs operand')
+  | Cfg.BinaryOperator { left; operator; right } -> (
+      let left' = eval_simple_int_expr left s in
+      let right' = eval_simple_int_expr right s in
+      match operator with
+      | Add -> add left' right'
+      | Subtract -> failwith ""
+      | Multiply -> failwith ""
+      | Divide -> failwith "")
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_bool_expr e s
-  | Cfg.UnaryOperator _ -> failwith ""
-  | Cfg.BinaryOperator _ -> failwith ""
-  | Cfg.Compare _ -> failwith ""
+  | Cfg.UnaryOperator { operator = Not; operand } -> (
+      let operand' = eval_simple_bool_expr operand s in
+      match operand' with Boolean b -> Boolean (not b) | _ -> operand')
+  | Cfg.BinaryOperator { left; operator; right } -> (
+      let _left' = eval_simple_bool_expr left in
+      let _right' = eval_simple_bool_expr right in
+      match operator with And -> failwith "" | Or -> failwith "")
+  | Cfg.Compare { left; operator; right } -> (
+      let _left' = eval_simple_int_expr left in
+      let _right' = eval_simple_int_expr right in
+      match operator with
+      | LessThen -> failwith ""
+      | GreaterThan -> failwith ""
+      | LessThenOrEqual -> failwith ""
+      | GreaterThanOrEqual -> failwith ""
+      | Equal -> failwith ""
+      | NotEqual -> failwith "")
 
 let transfer (n : node) s =
   match n.command with

@@ -10,7 +10,7 @@ end
 type basic_bool_expr = Boolean of bool | Identifier of identifier
 type basic_int_expr = Integer of int | Identifier of identifier
 type int_unary_operator = Negate | AbsoluteValue
-type bool_unary_operator = No
+type bool_unary_operator = Not
 type node_reference = Node of int
 type int_binary_operator = Add | Subtract | Multiply | Divide
 type bool_binary_operator = And | Or
