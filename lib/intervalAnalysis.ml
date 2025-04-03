@@ -44,6 +44,7 @@ let negate = function
       in
       let x' = negate x in
       let y' = negate y in
+      (*TODO: maybe just y' x'*)
       Interval (Number.min x' y', Number.max x' y')
 
 let do_binary_int_op f x y =
@@ -62,6 +63,40 @@ let add =
   do_binary_int_op (fun (x1, x2) (y1, y2) ->
       Interval.Interval (add x1 y1, add x2 y2))
 
+let sub =
+  let sub x y =
+    match (x, y) with
+    | _, Number.NInfinity | Number.NInfinity, _ -> Number.NInfinity
+    | _, Number.PInfinity | Number.PInfinity, _ -> Number.PInfinity
+    | Number.Integer x, Number.Integer y -> Number.Integer (x - y)
+  in
+  do_binary_int_op (fun (x1, x2) (y1, y2) ->
+      Interval.Interval (sub x1 y1, sub x2 y2))
+
+let is_pos = function
+  | Number.PInfinity -> true
+  | Number.NInfinity -> false
+  | Integer n -> n >= 0
+
+let mul =
+  let max = List.fold_left Number.max Number.NInfinity in
+  let min = List.fold_left Number.min Number.PInfinity in
+  let mul x y =
+    match (x, y) with
+    | e, Number.NInfinity | Number.NInfinity, e ->
+        if is_pos e then Number.NInfinity else Number.PInfinity
+    | e, Number.PInfinity | Number.PInfinity, e ->
+        if is_pos e then Number.PInfinity else Number.NInfinity
+    | Number.Integer x, Number.Integer y -> Number.Integer (x * y)
+  in
+  do_binary_int_op (fun (x1, x2) (y1, y2) ->
+      let x1y1 = mul x1 y1 in
+      let x1y2 = mul x1 y2 in
+      let x2y1 = mul x2 y1 in
+      let x2y2 = mul x2 y2 in
+      Interval.Interval
+        (min [ x1y1; x1y2; x2y1; x2y2 ], max [ x1y1; x1y2; x2y1; x2y2 ]))
+
 let eval_int_expr (e : Cfg.int_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_int_expr e s
@@ -75,8 +110,8 @@ let eval_int_expr (e : Cfg.int_expr) s =
       let right' = eval_simple_int_expr right s in
       match operator with
       | Add -> add left' right'
-      | Subtract -> failwith ""
-      | Multiply -> failwith ""
+      | Subtract -> sub left' right'
+      | Multiply -> mul left' right'
       | Divide -> failwith "")
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
