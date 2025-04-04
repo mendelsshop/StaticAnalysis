@@ -97,6 +97,36 @@ let mul =
       Interval.Interval
         (min [ x1y1; x1y2; x2y1; x2y2 ], max [ x1y1; x1y2; x2y1; x2y2 ]))
 
+let rec div x y =
+  let max = List.fold_left Number.max Number.NInfinity in
+  let min = List.fold_left Number.min Number.PInfinity in
+  let div' x y =
+    match (x, y) with
+    | e, Number.NInfinity | Number.NInfinity, e ->
+        if is_pos e then Number.NInfinity else Number.PInfinity
+    | e, Number.PInfinity | Number.PInfinity, e ->
+        if is_pos e then Number.PInfinity else Number.NInfinity
+    | Number.Integer x, Number.Integer y -> Number.Integer (x / y)
+  in
+  do_binary_int_op
+    (fun (x1, x2) (y1, y2) ->
+      let x1divy1 = div' x1 y1 in
+      let x1divy2 = div' x1 y2 in
+      let x2divy1 = div' x2 y1 in
+      let x2divy2 = div' x2 y2 in
+      if Number.leq (Integer 1) y1 then
+        Interval.Interval (min [ x1divy1; x1divy2 ], max [ x2divy1; x2divy2 ])
+      else if Number.leq y2 (Integer (-1)) then
+        Interval.Interval (min [ x1divy1; x1divy2 ], max [ x2divy1; x2divy2 ])
+      else
+        Interval.join
+          (div x
+             (Interval.meet y (Interval.Interval (Integer 1, Number.PInfinity))))
+          (div x
+             (Interval.meet y
+                (Interval.Interval (Number.NInfinity, Integer (-1))))))
+    x y
+
 let eval_int_expr (e : Cfg.int_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_int_expr e s
