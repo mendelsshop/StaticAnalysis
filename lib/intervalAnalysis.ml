@@ -142,7 +142,8 @@ let eval_int_expr (e : Cfg.int_expr) s =
       | Add -> add left' right'
       | Subtract -> sub left' right'
       | Multiply -> mul left' right'
-      | Divide -> failwith "")
+      | Divide -> div left' right'
+      | Modulo -> failwith "")
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with

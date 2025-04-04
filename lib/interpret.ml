@@ -37,7 +37,7 @@ let math (op : math_operator) =
 
 let rec eval_expression (e : expression) env =
   match e with
-  | Variable v -> Env.find_opt env v
+  | Variable (v, _ty) -> Env.find_opt env v
   | Number v -> Some (VNumber v)
   | Boolean v -> Some (VBoolean v)
   | Math (l, o, r) ->
@@ -84,7 +84,7 @@ let rec eval (s : statement) env =
         let* _ = eval cons env in
         eval s env
       else Option.some ()
-  | Assign (i, v) ->
+  | Assign ((i, _ty), v) ->
       let+ v' = eval_expression v env in
       Env.add env i v'
   | Done _ -> Some ()

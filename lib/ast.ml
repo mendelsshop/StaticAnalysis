@@ -22,7 +22,8 @@
 (*  | Assign : 'a identifier * 'a expression -> statement*)
 (*  | Done : statement*)
 (*  | Sequence : statement * statement -> statement*)
-type identifier = string
+type ty = Integer | Boolean
+type identifier = string * ty
 type math_operator = Add | Sub | Mul | Div | Mod
 
 type comparer =
