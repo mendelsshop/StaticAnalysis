@@ -5,14 +5,56 @@ let gensym r =
 
 let rec expr_to_simple_bool_expr (expr : Ast.expression) g :
     'a list * Cfg.basic_bool_expr =
+  let apply_op r l op : 'a list * Cfg.basic_bool_expr =
+    let stmts, l' = expr_to_simple_bool_expr l g in
+    let stmts', r' = expr_to_simple_bool_expr r g in
+    let temp = gensym g in
+
+    ( stmts @ stmts'
+      @ [
+          Cfg.AssignBool
+            {
+              target = Identifier temp;
+              value =
+                Cfg.BinaryOperator { operator = op; left = l'; right = r' };
+            };
+        ],
+      Cfg.Identifier (Identifier temp) )
+  in
   match expr with
   | Ast.Variable (v, _ty) -> ([], Cfg.Identifier (Identifier v))
   | Ast.Number _ -> failwith "not reachable"
   | Ast.Boolean b -> ([], Cfg.Boolean b)
   | Ast.Math (_, _, _) -> failwith "not reachable"
-  | Ast.Compare (_, _, _) -> failwith ""
-  | Ast.And (_, _) -> failwith ""
-  | Ast.Or (_, _) -> failwith ""
+  | Ast.Compare (l, o, r) ->
+      let stmts, l' = expr_to_simple_int_expr l g in
+      let stmts', r' = expr_to_simple_int_expr r g in
+      let temp = gensym g in
+
+      ( stmts @ stmts'
+        @ [
+            Cfg.AssignBool
+              {
+                target = Identifier temp;
+                value =
+                  Cfg.Compare
+                    {
+                      operator =
+                        (match o with
+                        | Ast.Greater -> Cfg.GreaterThan
+                        | Ast.Less -> Cfg.LessThen
+                        | Ast.LessOrEqual -> Cfg.LessThenOrEqual
+                        | Ast.GreaterOrEqual -> Cfg.GreaterThanOrEqual
+                        | Ast.Equal -> Cfg.Equal
+                        | Ast.NotEqual -> Cfg.NotEqual);
+                      left = l';
+                      right = r';
+                    };
+              };
+          ],
+        Cfg.Identifier (Identifier temp) )
+  | Ast.And (l, r) -> apply_op r l Cfg.And
+  | Ast.Or (l, r) -> apply_op r l Cfg.Or
   | Ast.Not b ->
       let stmts, b' = expr_to_simple_bool_expr b g in
       let temp = gensym g in
