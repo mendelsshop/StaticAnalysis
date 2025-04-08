@@ -63,15 +63,15 @@ let int_expr_to_string = function
   | UnaryOperator { operator; operand } ->
       (match operator with Negate -> "-" | AbsoluteValue -> "+")
       ^ int_expr_to_string operand
-  | BinaryOperator { left; operator; right } -> (
+  | BinaryOperator { left; operator; right } ->
       int_expr_to_string left ^ " "
-      ^
-      (match operator with
-      | Add -> "+"
-      | Subtract -> "-"
-      | Multiply -> "*"
-      | Divide -> "/"
-      | Modulo -> "mod") ^ " " ^ int_expr_to_string right)
+      ^ (match operator with
+        | Add -> "+"
+        | Subtract -> "-"
+        | Multiply -> "*"
+        | Divide -> "/"
+        | Modulo -> "mod")
+      ^ " " ^ int_expr_to_string right
 
 let command_to_string = function
   | AssignInt { target = Identifier i; value } ->
