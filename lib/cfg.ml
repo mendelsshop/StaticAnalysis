@@ -54,6 +54,30 @@ type command =
   | AssignBool of { target : identifier; value : bool_expr }
   | Cond of bool_expr
 
+let int_expr_to_string = function
+  | Integer n -> string_of_int n
+  | Identifier (Identifier i) -> i
+
+let int_expr_to_string = function
+  | Basic b -> int_expr_to_string b
+  | UnaryOperator { operator; operand } ->
+      (match operator with Negate -> "-" | AbsoluteValue -> "+")
+      ^ int_expr_to_string operand
+  | BinaryOperator { left; operator; right } -> (
+      int_expr_to_string left ^ " "
+      ^
+      (match operator with
+      | Add -> "+"
+      | Subtract -> "-"
+      | Multiply -> "*"
+      | Divide -> "/"
+      | Modulo -> "mod") ^ " " ^ int_expr_to_string right)
+
+let command_to_string = function
+  | AssignInt { target = Identifier i; value } ->
+      i ^ " = " ^ int_expr_to_string value
+  | _ -> failwith ""
+
 type edge = Directed | True | False
 type node = { id : int; command : command }
 
