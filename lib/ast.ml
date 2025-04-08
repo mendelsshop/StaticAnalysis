@@ -50,5 +50,4 @@ type statement =
   | If of expression * statement * statement
   | While of expression * statement
   | Assign of identifier * expression
-  | Done of statement
   | Sequence of statement * statement

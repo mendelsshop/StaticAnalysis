@@ -93,7 +93,6 @@ let rec eval (s : statement) env =
   | Assign ((i, _ty), v) ->
       let+ v' = eval_expression v env in
       Env.add env i v'
-  | Done _ -> Some ()
   | Sequence (s1, s2) ->
       let* _ = eval s1 env in
       eval s2 env
