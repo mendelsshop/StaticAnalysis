@@ -25,6 +25,7 @@
 type ty = Integer | Boolean
 type identifier = string * ty
 type math_operator = Add | Sub | Mul | Div | Mod
+type unary_operator = Abs | Neg
 
 type comparer =
   | Greater
@@ -39,6 +40,7 @@ type expression =
   | Number of int
   | Boolean of bool
   | Math of expression * math_operator * expression
+  | UnaryMath of unary_operator * expression
   | Compare of expression * comparer * expression
   | And of expression * expression
   | Or of expression * expression

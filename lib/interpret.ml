@@ -35,6 +35,8 @@ let math (op : math_operator) =
   | Div -> ( / )
   | Mod -> ( mod )
 
+let unary = function Abs -> abs | Neg -> Int.neg
+
 let rec eval_expression (e : expression) env =
   match e with
   | Variable (v, _ty) -> Env.find_opt env v
@@ -46,6 +48,10 @@ let rec eval_expression (e : expression) env =
       let* r' = eval_expression r env in
       let+ r' = to_integer r' in
       VNumber ((math o) l' r')
+  | UnaryMath (o, v) ->
+      let* v' = eval_expression v env in
+      let+ v'' = to_integer v' in
+      VNumber ((unary o) v'')
   | Compare (l, o, r) ->
       let* l' = eval_expression l env in
       let* r' = eval_expression r env in

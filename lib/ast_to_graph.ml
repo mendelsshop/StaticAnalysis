@@ -28,6 +28,7 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g =
   | Ast.Number _ -> failwith "not reachable"
   | Ast.Boolean b -> ([], Cfg.Boolean b)
   | Ast.Math (_, _, _) -> failwith "not reachable"
+  | Ast.UnaryMath (_, _) -> failwith "not reachable"
   | Ast.Compare (_l, _o, _r) ->
       (*let stmts, l' = expr_to_simple_int_expr l g in*)
       (*let stmts', r' = expr_to_simple_int_expr r g in*)
@@ -76,6 +77,25 @@ and expr_to_simple_int_expr (expr : Ast.expression) g :
   | Ast.Number n -> (Cfg.Integer n, Fun.id)
   | Ast.Variable (v, _ty) -> (Cfg.Identifier (Identifier v), Fun.id)
   | Ast.Boolean _ -> failwith "not reachable"
+  | Ast.UnaryMath (o, v) ->
+      let v', stmts = expr_to_simple_int_expr v g in
+      let temp = gensym g in
+      let command =
+        Cfg.AssignInt
+          {
+            target = Identifier temp;
+            value =
+              Cfg.UnaryOperator
+                {
+                  operator =
+                    (match o with
+                    | Ast.Neg -> Cfg.Negate
+                    | Ast.Abs -> Cfg.AbsoluteValue);
+                  operand = v';
+                };
+          }
+      in
+      (Cfg.Identifier (Identifier temp), fun s -> stmts (List.cons command s))
   | Ast.Math (l, o, r) ->
       let l', stmts = expr_to_simple_int_expr l g in
       let r', stmts' = expr_to_simple_int_expr r g in
@@ -99,7 +119,6 @@ and expr_to_simple_int_expr (expr : Ast.expression) g :
                 };
           }
       in
-
       ( Cfg.Identifier (Identifier temp),
         fun s -> stmts (stmts' (List.cons command s)) )
   | Ast.Compare (_, _, _) -> failwith "not reachable"
