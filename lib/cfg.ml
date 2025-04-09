@@ -58,6 +58,29 @@ let int_expr_to_string = function
   | Integer n -> string_of_int n
   | Identifier (Identifier i) -> i
 
+let bool_expr_to_string = function
+  | Boolean b -> string_of_bool b
+  | Identifier (Identifier i) -> i
+
+let bool_expr_to_string = function
+  | Compare { left; operator; right } ->
+      int_expr_to_string left ^ " "
+      ^ (match operator with
+        | Equal -> "="
+        | NotEqual -> "<>"
+        | LessThen -> "<"
+        | GreaterThan -> ">"
+        | LessThenOrEqual -> "<="
+        | GreaterThanOrEqual -> ">=")
+      ^ " " ^ int_expr_to_string right
+  | Basic b -> bool_expr_to_string b
+  | UnaryOperator { operator; operand } ->
+      (match operator with Not -> "not ") ^ bool_expr_to_string operand
+  | BinaryOperator { left; operator; right } ->
+      bool_expr_to_string left ^ " "
+      ^ (match operator with And -> " and " | Or -> " or ")
+      ^ " " ^ bool_expr_to_string right
+
 let int_expr_to_string = function
   | Basic b -> int_expr_to_string b
   | UnaryOperator { operator; operand } ->
@@ -76,7 +99,9 @@ let int_expr_to_string = function
 let command_to_string = function
   | AssignInt { target = Identifier i; value } ->
       i ^ " = " ^ int_expr_to_string value
-  | _ -> failwith ""
+  | Cond b -> bool_expr_to_string b ^ "?"
+  | AssignBool { target = Identifier i; value } ->
+      i ^ " = " ^ bool_expr_to_string value
 
 type edge = Directed | True | False
 type node = { id : int; command : command }

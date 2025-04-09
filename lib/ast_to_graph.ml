@@ -3,9 +3,7 @@ let gensym r =
   incr r;
   "temp" ^ string_of_int current
 
-let rec append list x k =
-  match list with [] -> k x | i :: is -> i :: append is x k
-
+(*TODO: add succecor/predeccesor*)
 let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
     Cfg.basic_bool_expr * (Cfg.command list -> Cfg.command list) * int =
   let apply_op r l op i :
@@ -133,8 +131,16 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
 
 let rec stmt_to_cfg (s : Ast.statement) g i =
   match s with
-  | Ast.If (_, _, _) -> failwith ""
-  | Ast.While (_, _) -> failwith ""
+  | Ast.If (c, t, a) ->
+      let c', stmts, i' = expr_to_simple_bool_expr c g i in
+      let t', i'' = stmt_to_cfg t g i' in
+      let a', i''' = stmt_to_cfg a g i'' in
+      ((fun s -> stmts (Cfg.Cond (Basic c') :: (s |> a' |> t'))), i''')
+  | Ast.While (c, t) ->
+      let c', stmts, i' = expr_to_simple_bool_expr c g i in
+      let t', i'' = stmt_to_cfg t g i' in
+      (*next branch will be i'' + 1*)
+      ((fun s -> stmts (Cfg.Cond (Basic c') :: t' s)), i'')
   | Ast.Assign ((ident, Integer), v) ->
       let v', stmts, i' = expr_to_simple_int_expr v g i in
       let command =

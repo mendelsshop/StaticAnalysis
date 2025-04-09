@@ -24,8 +24,10 @@ let stmt2 =
               Ast.Add,
               Ast.Math (Ast.Number 8, Ast.Add, Ast.Number 9) ) ) )
 
+let cond = Ast.Not (Ast.Boolean true)
+
 let k =
-  [] |> (Ast_to_graph.stmt_to_cfg (Ast.Sequence (stmt1, stmt2)) (ref 0) 0 |> fst)
+  [] |> (Ast_to_graph.stmt_to_cfg (Ast.If (cond, stmt1, stmt2)) (ref 0) 0 |> fst)
 
 let () =
   print_endline (k |> List.map Cfg.command_to_string |> String.concat "\n")
