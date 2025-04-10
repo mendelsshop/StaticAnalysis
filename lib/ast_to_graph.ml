@@ -3,11 +3,14 @@ let gensym r =
   incr r;
   "temp" ^ string_of_int current
 
-(*TODO: add succecor/predeccesor*)
+(*TODO: add succecor/predeccesor
+  it won't always be i+1, because that migth be from another branch of if/while
+  also maybe there is none (last statement/last statement in while that is last statement)
+  maybe pass it as part of continuation
+*)
 let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
-    Cfg.basic_bool_expr * (Cfg.command list -> Cfg.command list) * int =
-  let apply_op r l op i :
-      Cfg.basic_bool_expr * (Cfg.command list -> Cfg.command list) * int =
+    Cfg.basic_bool_expr * (Cfg.graph -> Cfg.graph) * int =
+  let apply_op r l op i : Cfg.basic_bool_expr * (Cfg.graph -> Cfg.graph) * int =
     let l', stmts, i' = expr_to_simple_bool_expr l g i in
     let r', stmts', i'' = expr_to_simple_bool_expr r g i' in
     let temp = gensym g in
@@ -19,7 +22,7 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
         }
     in
     ( Cfg.Identifier (Identifier temp),
-      (fun s -> command :: s |> stmts' |> stmts),
+      (fun g -> Cfg.add_node { id = i'' + 1; command } g |> stmts' |> stmts),
       i'' + 1 )
   in
   match expr with
@@ -53,7 +56,7 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
           }
       in
       ( Cfg.Identifier (Identifier temp),
-        (fun s -> command :: s |> stmts' |> stmts),
+        (fun s -> Cfg.add_node { id = i'' + 1; command } s |> stmts' |> stmts),
         i'' + 1 )
   | Ast.And (l, r) -> apply_op r l Cfg.And i
   | Ast.Or (l, r) -> apply_op r l Cfg.Or i
@@ -68,11 +71,11 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
           }
       in
       ( Cfg.Identifier (Identifier temp),
-        (fun s -> command :: s |> stmts),
+        (fun s -> Cfg.add_node { id = i' + 1; command } s |> stmts),
         i' + 1 )
 
 and expr_to_simple_int_expr (expr : Ast.expression) g i :
-    Cfg.basic_int_expr * (Cfg.command list -> Cfg.command list) * int =
+    Cfg.basic_int_expr * (Cfg.graph -> Cfg.graph) * int =
   match expr with
   | Ast.Number n -> (Cfg.Integer n, Fun.id, i)
   | Ast.Variable (v, _ty) -> (Cfg.Identifier (Identifier v), Fun.id, i)
@@ -96,7 +99,7 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
           }
       in
       ( Cfg.Identifier (Identifier temp),
-        (fun s -> command :: s |> stmts),
+        (fun s -> Cfg.add_node { id = i' + 1; command } s |> stmts),
         i' + 1 )
   | Ast.Math (l, o, r) ->
       let l', stmts, i' = expr_to_simple_int_expr l g i in
@@ -122,7 +125,7 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
           }
       in
       ( Cfg.Identifier (Identifier temp),
-        (fun s -> command :: s |> stmts' |> stmts),
+        (fun s -> Cfg.add_node { id = i'' + 1; command } s |> stmts' |> stmts),
         i'' + 1 )
   | Ast.Compare (_, _, _) -> failwith "not reachable"
   | Ast.And (_, _) -> failwith "not reachable"
@@ -133,26 +136,28 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
   match s with
   | Ast.If (c, t, a) ->
       let c', stmts, i' = expr_to_simple_bool_expr c g i in
-      let t', i'' = stmt_to_cfg t g i' in
+      let t', i'' = stmt_to_cfg t g (i' + 1) in
       let a', i''' = stmt_to_cfg a g i'' in
-      ((fun s -> stmts (Cfg.Cond (Basic c') :: (s |> a' |> t'))), i''')
+      let command = Cfg.Cond (Basic c') in
+      ( (fun s -> stmts (Cfg.add_node { id = i' + 1; command } (s |> a' |> t'))),
+        i''' )
   | Ast.While (c, t) ->
       let c', stmts, i' = expr_to_simple_bool_expr c g i in
-      let t', i'' = stmt_to_cfg t g i' in
-      (*next branch will be i'' + 1*)
-      ((fun s -> stmts (Cfg.Cond (Basic c') :: t' s)), i'')
+      let t', i'' = stmt_to_cfg t g (i' + 1) in
+      let command = Cfg.Cond (Basic c') in
+      ((fun s -> stmts (Cfg.add_node { id = i' + 1; command } (t' s))), i'')
   | Ast.Assign ((ident, Integer), v) ->
       let v', stmts, i' = expr_to_simple_int_expr v g i in
       let command =
         Cfg.AssignInt { target = Identifier ident; value = Cfg.Basic v' }
       in
-      ((fun s -> stmts (command :: s)), i' + 1)
+      ((fun s -> stmts (Cfg.add_node { id = i' + 1; command } s)), i' + 1)
   | Ast.Assign ((ident, Boolean), v) ->
       let v', stmts, i' = expr_to_simple_bool_expr v g i in
       let command =
         Cfg.AssignBool { target = Identifier ident; value = Cfg.Basic v' }
       in
-      ((fun s -> stmts (command :: s)), i' + 1)
+      ((fun s -> stmts (Cfg.add_node { id = i' + 1; command } s)), i' + 1)
   | Ast.Sequence (s, s') ->
       let stmts, i' = stmt_to_cfg s g i in
       let stmts', i'' = stmt_to_cfg s' g i' in

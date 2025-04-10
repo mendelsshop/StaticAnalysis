@@ -110,6 +110,9 @@ module Node = struct
   type t = node
 
   let compare { id = id1; _ } { id = id2; _ } = Int.compare id1 id2
+
+  let node_to_string { id; command } =
+    string_of_int id ^ ": " ^ command_to_string command
 end
 
 module NodeMap = Map.Make (Node)
@@ -119,3 +122,6 @@ type graph = {
   successors : (edge * node) list NodeMap.t;
   predecesseors : (edge * node) list NodeMap.t;
 }
+
+let add_node n { nodes; successors; predecesseors } =
+  { nodes = n :: nodes; successors; predecesseors }
