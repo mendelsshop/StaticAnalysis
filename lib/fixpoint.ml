@@ -19,7 +19,9 @@ struct
       match NodeSet.elements worklist with
       | [] -> state
       | node :: worklist ->
-          let preds = NodeMap.find node graph.predecesseors in
+          let preds =
+            NodeReferenceMap.find (Node node.id) graph.predecesseors
+          in
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeMap.find |> Fun.flip) state)
@@ -29,7 +31,9 @@ struct
           let worklist' = worklist |> NodeSet.of_list in
           if y = curent_state then fix worklist' state
           else
-            let succesors = NodeMap.find node graph.successors in
+            let succesors =
+              NodeReferenceMap.find (Node node.id) graph.successors
+            in
             fix
               (*TODO: find might fail*)
               (NodeSet.union

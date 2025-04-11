@@ -29,8 +29,8 @@ let cond2 = Ast.Not (Ast.Boolean false)
 
 let k =
   {
-    successors = Cfg.NodeMap.empty;
-    predecesseors = Cfg.NodeMap.empty;
+    successors = Cfg.NodeReferenceMap.empty;
+    predecesseors = Cfg.NodeReferenceMap.empty;
     nodes = [];
   }
   |> (Ast_to_graph.stmt_to_cfg

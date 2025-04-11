@@ -115,13 +115,36 @@ module Node = struct
     string_of_int id ^ ": " ^ command_to_string command
 end
 
+module NodeReference = struct
+  type t = node_reference
+
+  let compare (Node id1) (Node id2) = Int.compare id1 id2
+end
+
 module NodeMap = Map.Make (Node)
+module NodeReferenceMap = Map.Make (NodeReference)
 
 type graph = {
   nodes : node list;
-  successors : (edge * node) list NodeMap.t;
-  predecesseors : (edge * node) list NodeMap.t;
+  successors : (edge * node) list NodeReferenceMap.t;
+  (*backwards edge means its only possible to go backwards if its possible to go fowards*)
+  predecesseors : (edge * node) list NodeReferenceMap.t;
 }
+
+let add_successor inNode successor { nodes; successors; predecesseors } =
+  {
+    nodes;
+    successors = NodeReferenceMap.add (Node inNode) successor successors;
+    predecesseors;
+  }
+
+let add_predecesseor inNode predecesseor { nodes; successors; predecesseors } =
+  {
+    nodes;
+    predecesseors =
+      NodeReferenceMap.add (Node inNode) predecesseor predecesseors;
+    successors;
+  }
 
 let add_node n { nodes; successors; predecesseors } =
   { nodes = n :: nodes; successors; predecesseors }
