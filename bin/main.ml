@@ -37,6 +37,7 @@ let k =
         (Ast.If (cond1, Ast.While (cond2, stmt3), stmt2))
         (ref 0) 0
      |> fst)
+       0
 
 let () =
   print_endline
