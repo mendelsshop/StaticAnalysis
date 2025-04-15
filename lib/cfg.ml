@@ -132,18 +132,23 @@ type graph = {
   predecesseors : (edge * node_reference) list NodeReferenceMap.t;
 }
 
-let add_successor inNode successor { nodes; successors; predecesseors } =
+let add_successor inNode edge { nodes; successors; predecesseors } =
   {
     nodes;
-    successors = NodeReferenceMap.add (Node inNode) successor successors;
+    successors =
+      NodeReferenceMap.update (Node inNode)
+        (fun edges -> Some (edge :: Option.value edges ~default:[]))
+        successors;
     predecesseors;
   }
 
-let add_predecesseor inNode predecesseor { nodes; successors; predecesseors } =
+let add_predecesseor inNode edge { nodes; successors; predecesseors } =
   {
     nodes;
     predecesseors =
-      NodeReferenceMap.add (Node inNode) predecesseor predecesseors;
+      NodeReferenceMap.update (Node inNode)
+        (fun edges -> Some (edge :: Option.value edges ~default:[]))
+        predecesseors;
     successors;
   }
 
@@ -156,9 +161,9 @@ let edges_to_string (Node n, (e : (edge * node_reference) list)) =
 
 let cfg_to_string { nodes; successors; predecesseors } =
   (nodes |> List.map Node.node_to_string |> String.concat "\n")
-  ^ "\n"
+  ^ "\nsuccessors:\n"
   ^ (successors |> NodeReferenceMap.to_list |> List.map edges_to_string
    |> String.concat "\n")
-  ^ "\n"
+  ^ "\npredecesseors:\n"
   ^ (predecesseors |> NodeReferenceMap.to_list |> List.map edges_to_string
    |> String.concat "\n")
