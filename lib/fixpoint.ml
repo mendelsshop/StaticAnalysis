@@ -20,8 +20,11 @@ struct
     let rec fix worklist (state : state) =
       match NodeReferenceSet.elements worklist with
       | [] -> state
-      | node :: worklist ->
-          let preds = NodeReferenceMap.find node graph.predecesseors in
+      | (Node node as node_ref) :: worklist ->
+          let node =
+            List.find (fun { id; command = _ } -> id = node) graph.nodes
+          in
+          let preds = NodeReferenceMap.find node_ref graph.predecesseors in
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeReferenceMap.find |> Fun.flip) state)
@@ -31,20 +34,20 @@ struct
           let worklist' = worklist |> NodeReferenceSet.of_list in
           if y = curent_state then fix worklist' state
           else
-            let succesors = NodeReferenceMap.find node graph.successors in
+            let succesors = NodeReferenceMap.find node_ref graph.successors in
             fix
               (*TODO: find might fail*)
               (NodeReferenceSet.union
                  (List.map (fun (_, s) -> s) succesors
                  |> NodeReferenceSet.of_list)
                  worklist')
-              (NodeReferenceMap.add node
-                 (U.update
-                    ((List.find (fun _ -> true) graph.nodes)
-                       node y curent_state)
-                    state))
+              (NodeReferenceMap.add node_ref
+                 (U.update node y curent_state)
+                 state)
     in
-    fix (graph.nodes |> NodeReferenceSet.of_list) state
+    fix
+      (graph.nodes |> List.map (fun n -> Node n.id) |> NodeReferenceSet.of_list)
+      state
 end
 
 module Default (L : Lattice.JoinSemiLattice) =
