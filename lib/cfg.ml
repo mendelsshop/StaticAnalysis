@@ -123,12 +123,13 @@ end
 
 module NodeMap = Map.Make (Node)
 module NodeReferenceMap = Map.Make (NodeReference)
+module NodeReferenceSet = Set.Make (NodeReference)
 
 type graph = {
   nodes : node list;
-  successors : (edge * node) list NodeReferenceMap.t;
+  successors : (edge * node_reference) list NodeReferenceMap.t;
   (*backwards edge means its only possible to go backwards if its possible to go fowards*)
-  predecesseors : (edge * node) list NodeReferenceMap.t;
+  predecesseors : (edge * node_reference) list NodeReferenceMap.t;
 }
 
 let add_successor inNode successor { nodes; successors; predecesseors } =
@@ -148,3 +149,16 @@ let add_predecesseor inNode predecesseor { nodes; successors; predecesseors } =
 
 let add_node n { nodes; successors; predecesseors } =
   { nodes = n :: nodes; successors; predecesseors }
+
+let edges_to_string (Node n, (e : (edge * node_reference) list)) =
+  List.map (fun (_, Node n') -> string_of_int n ^ " --> " ^ string_of_int n') e
+  |> String.concat "\n"
+
+let cfg_to_string { nodes; successors; predecesseors } =
+  (nodes |> List.map Node.node_to_string |> String.concat "\n")
+  ^ "\n"
+  ^ (successors |> NodeReferenceMap.to_list |> List.map edges_to_string
+   |> String.concat "\n")
+  ^ "\n"
+  ^ (predecesseors |> NodeReferenceMap.to_list |> List.map edges_to_string
+   |> String.concat "\n")

@@ -39,6 +39,4 @@ let k =
      |> fst)
        0
 
-let () =
-  print_endline
-    (k.nodes |> List.map Cfg.Node.node_to_string |> String.concat "\n")
+let () = print_endline (Cfg.cfg_to_string k)
