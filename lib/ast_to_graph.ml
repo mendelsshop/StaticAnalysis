@@ -197,9 +197,18 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
         i''' )
   | Ast.While (c, t) ->
       let c', c_stmts, i' = expr_to_simple_bool_expr c g i in
-      let t_stmts, i'' = stmt_to_cfg t g i in
-      let command : Cfg.node = { id = i; command = Cfg.Cond (Basic c') } in
-      ((fun _ g -> c_stmts i' (g |> Cfg.add_node command |> t_stmts i'')), i'')
+      let cond_id = i' + 1 in
+      let t_stmts, i'' = stmt_to_cfg t g cond_id in
+      let command : Cfg.node =
+        { id = cond_id; command = Cfg.Cond (Basic c') }
+      in
+      ( (fun i g ->
+          c_stmts cond_id
+            (Cfg.add_node command
+               (g |> t_stmts cond_id
+               |> Cfg.add_successor cond_id (Cfg.False, Node i)
+               |> Cfg.add_successor cond_id (Cfg.True, Node (cond_id + 1))))),
+        i'' )
   | Ast.Assign ((ident, Integer), v) ->
       let v', v_stmts, i' = expr_to_simple_int_expr v g i in
       let id = i' + 1 in

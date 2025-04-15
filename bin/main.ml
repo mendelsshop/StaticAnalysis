@@ -24,20 +24,23 @@ let stmt2 =
               Ast.Math (Ast.Number 8, Ast.Add, Ast.Number 9) ) ) )
 
 let stmt3 = Ast.Assign (("j", Ast.Integer), Ast.Number 10)
-(*let cond1 = Ast.Not (Ast.Boolean true)*)
+let cond1 = Ast.Not (Ast.Boolean true)
 
 let stmt1 =
   Ast.Assign
     ( ("k", Ast.Boolean),
       Ast.Or (Ast.Not (Ast.Boolean true), Ast.Not (Ast.Boolean true)) )
-(*let cond2 = Ast.Not (Ast.Boolean false)*)
+
+let cond2 = Ast.Not (Ast.Boolean false)
+
+let _ =
+  Ast_to_graph.stmt_to_cfg
+    (Ast.Sequence (stmt1, Ast.If (cond1, stmt3, stmt2)))
+    (ref 0) (-1)
 
 let k, _ =
-  Ast_to_graph.stmt_to_cfg
-    (Ast.Sequence (stmt1, Ast.If (Variable ("k", Ast.Boolean), stmt3, stmt2)))
-    (ref 0) (-1)
-(*Ast_to_graph.stmt_to_cfg stmt2 (ref 0) (-1)*)
-(*(Ast_to_graph.stmt_to_cfg (Ast.Sequence ( stmt2, stmt3)) (ref 0) (-1) )*)
+  (*Ast_to_graph.stmt_to_cfg stmt2 (ref 0) (-1)*)
+  Ast_to_graph.stmt_to_cfg (Ast.While (cond2, stmt3)) (ref 0) (-1)
 
 let cfg =
   (*-1 mean no successor (realy should be option (None)*)

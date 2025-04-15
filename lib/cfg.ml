@@ -156,7 +156,12 @@ let add_node n { nodes; successors; predecesseors } =
   { nodes = n :: nodes; successors; predecesseors }
 
 let edges_to_string (Node n, (e : (edge * node_reference) list)) =
-  List.map (fun (_, Node n') -> string_of_int n ^ " --> " ^ string_of_int n') e
+  List.map
+    (fun (e, Node n') ->
+      string_of_int n ^ " -"
+      ^ (match e with True -> "true" | False -> "false" | Directed -> "")
+      ^ "-> " ^ string_of_int n')
+    e
   |> String.concat "\n"
 
 let cfg_to_string { nodes; successors; predecesseors } =
