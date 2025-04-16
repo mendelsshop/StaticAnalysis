@@ -36,7 +36,7 @@ type comparer =
   | NotEqual
 
 type expression =
-  | Variable of identifier
+  | Variable of string
   | Number of int
   | Boolean of bool
   | Math of expression * math_operator * expression

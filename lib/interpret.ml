@@ -39,7 +39,7 @@ let unary = function Abs -> abs | Neg -> Int.neg
 
 let rec eval_expression (e : expression) env =
   match e with
-  | Variable (v, _ty) -> Env.find_opt env v
+  | Variable v -> Env.find_opt env v
   | Number v -> Some (VNumber v)
   | Boolean v -> Some (VBoolean v)
   | Math (l, o, r) ->

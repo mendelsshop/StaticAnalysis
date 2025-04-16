@@ -45,7 +45,7 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
       id )
   in
   match expr with
-  | Ast.Variable (v, _ty) -> (Cfg.Identifier (Identifier v), id', i)
+  | Ast.Variable v -> (Cfg.Identifier (Identifier v), id', i)
   | Ast.Number _ -> failwith "not reachable"
   | Ast.Boolean b -> (Cfg.Boolean b, id', i)
   | Ast.Math (_, _, _) -> failwith "not reachable"
@@ -112,7 +112,7 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
     Cfg.basic_int_expr * (int option -> Cfg.graph -> Cfg.graph) * int =
   match expr with
   | Ast.Number n -> (Cfg.Integer n, id', i)
-  | Ast.Variable (v, _ty) -> (Cfg.Identifier (Identifier v), id', i)
+  | Ast.Variable v -> (Cfg.Identifier (Identifier v), id', i)
   | Ast.Boolean _ -> failwith "not reachable"
   | Ast.UnaryMath (o, v) ->
       let v', v_stmts, i' = expr_to_simple_int_expr v g i in
