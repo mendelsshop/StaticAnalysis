@@ -129,6 +129,7 @@ type graph = {
   nodes : node list;
   successors : (edge * node_reference) list NodeReferenceMap.t;
   (*backwards edge means its only possible to go backwards if its possible to go fowards*)
+  (*are backwards edges then just foward edges but we from becomes to*)
   predecesseors : (edge * node_reference) list NodeReferenceMap.t;
 }
 

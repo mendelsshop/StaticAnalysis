@@ -13,10 +13,14 @@ let gensym r =
 *)
 let id' _ x = x
 
+let add_successor_opt src dest f g =
+  dest |> Option.map f
+  |> Option.fold ~none:g ~some:(Fun.flip (Cfg.add_successor src) g)
+
 let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
-    Cfg.basic_bool_expr * (int -> Cfg.graph -> Cfg.graph) * int =
+    Cfg.basic_bool_expr * (int option -> Cfg.graph -> Cfg.graph) * int =
   let apply_op r l op i :
-      Cfg.basic_bool_expr * (int -> Cfg.graph -> Cfg.graph) * int =
+      Cfg.basic_bool_expr * (int option -> Cfg.graph -> Cfg.graph) * int =
     let l', l_stmts, i' = expr_to_simple_bool_expr l g i in
     let r', r_stmts, i'' = expr_to_simple_bool_expr r g i' in
     let id = i'' + 1 in
@@ -35,9 +39,9 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
     in
     ( Cfg.Identifier (Identifier temp),
       (fun i g ->
-        g |> Cfg.add_node command |> r_stmts id
-        |> l_stmts (i' + 1)
-        |> Cfg.add_successor id (Cfg.Directed, Node i)),
+        g |> Cfg.add_node command |> r_stmts (Some id)
+        |> l_stmts (Some (i' + 1))
+        |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
       id )
   in
   match expr with
@@ -77,9 +81,9 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
       in
       ( Cfg.Identifier (Identifier temp),
         (fun i g ->
-          g |> Cfg.add_node command |> r_stmts id
-          |> l_stmts (i' + 1)
-          |> Cfg.add_successor id (Cfg.Directed, Node i)),
+          g |> Cfg.add_node command |> r_stmts (Some id)
+          |> l_stmts (Some (i' + 1))
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
   | Ast.And (l, r) -> apply_op r l Cfg.And i
   | Ast.Or (l, r) -> apply_op r l Cfg.Or i
@@ -100,13 +104,12 @@ let rec expr_to_simple_bool_expr (expr : Ast.expression) g i :
       in
       ( Cfg.Identifier (Identifier temp),
         (fun i g ->
-          g |> Cfg.add_node command
-          |> Cfg.add_successor id (Cfg.Directed, Node i)
-          |> b_stmts id),
+          g |> Cfg.add_node command |> b_stmts (Some id)
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
 
 and expr_to_simple_int_expr (expr : Ast.expression) g i :
-    Cfg.basic_int_expr * (int -> Cfg.graph -> Cfg.graph) * int =
+    Cfg.basic_int_expr * (int option -> Cfg.graph -> Cfg.graph) * int =
   match expr with
   | Ast.Number n -> (Cfg.Integer n, id', i)
   | Ast.Variable (v, _ty) -> (Cfg.Identifier (Identifier v), id', i)
@@ -136,8 +139,8 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
       in
       ( Cfg.Identifier (Identifier temp),
         (fun i g ->
-          g |> Cfg.add_node command |> v_stmts id
-          |> Cfg.add_successor id (Cfg.Directed, Node i)),
+          g |> Cfg.add_node command |> v_stmts (Some id)
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
   | Ast.Math (l, o, r) ->
       let l', l_stmts, i' = expr_to_simple_int_expr l g i in
@@ -169,9 +172,9 @@ and expr_to_simple_int_expr (expr : Ast.expression) g i :
       in
       ( Cfg.Identifier (Identifier temp),
         (fun i g ->
-          g |> Cfg.add_node command |> r_stmts id
-          |> l_stmts (i' + 1)
-          |> Cfg.add_successor id (Cfg.Directed, Node i)),
+          g |> Cfg.add_node command |> r_stmts (Some id)
+          |> l_stmts (Some (i' + 1))
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
   | Ast.Compare (_, _, _) -> failwith "not reachable"
   | Ast.And (_, _) -> failwith "not reachable"
@@ -189,7 +192,7 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
         { id = cond_id; command = Cfg.Cond (Basic c') }
       in
       ( (fun i g ->
-          c_stmts cond_id
+          c_stmts (Some cond_id)
             (Cfg.add_node command
                (g |> a_stmts i |> t_stmts i
                |> Cfg.add_successor cond_id (Cfg.False, Node (i'' + 1))
@@ -203,10 +206,10 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
         { id = cond_id; command = Cfg.Cond (Basic c') }
       in
       ( (fun i g ->
-          c_stmts cond_id
+          c_stmts (Some cond_id)
             (Cfg.add_node command
-               (g |> t_stmts cond_id
-               |> Cfg.add_successor cond_id (Cfg.False, Node i)
+               (g |> t_stmts (Some cond_id)
+               |> add_successor_opt cond_id i (fun i -> (Cfg.Directed, Node i))
                |> Cfg.add_successor cond_id (Cfg.True, Node (cond_id + 1))))),
         i'' )
   | Ast.Assign ((ident, Integer), v) ->
@@ -220,8 +223,8 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
         }
       in
       ( (fun i g ->
-          g |> Cfg.add_node command |> v_stmts id
-          |> Cfg.add_successor id (Cfg.Directed, Node i)),
+          g |> Cfg.add_node command |> v_stmts (Some id)
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
   | Ast.Assign ((ident, Boolean), v) ->
       let v', v_stmts, i' = expr_to_simple_bool_expr v g i in
@@ -234,10 +237,10 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
         }
       in
       ( (fun i g ->
-          g |> Cfg.add_node command |> v_stmts id
-          |> Cfg.add_successor id (Cfg.Directed, Node i)),
+          g |> Cfg.add_node command |> v_stmts (Some id)
+          |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
   | Ast.Sequence (s, s') ->
       let stmts, i' = stmt_to_cfg s g i in
       let stmts', i'' = stmt_to_cfg s' g i' in
-      ((fun i s -> s |> stmts' i |> stmts (i' + 1)), i'')
+      ((fun i s -> s |> stmts' i |> stmts (Some (i' + 1))), i'')

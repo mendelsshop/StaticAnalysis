@@ -44,7 +44,7 @@ let k, _ =
 
 let cfg =
   (*-1 mean no successor (realy should be option (None)*)
-  k (-1)
+  k None
     {
       successors = Cfg.NodeReferenceMap.empty;
       predecesseors = Cfg.NodeReferenceMap.empty;
