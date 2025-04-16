@@ -22,7 +22,7 @@
 (*  | Assign : 'a identifier * 'a expression -> statement*)
 (*  | Done : statement*)
 (*  | Sequence : statement * statement -> statement*)
-type ty = Integer | Boolean
+type ty = TNumber | TBoolean
 type identifier = string * ty
 type math_operator = Add | Sub | Mul | Div | Mod
 type unary_operator = Abs | Neg

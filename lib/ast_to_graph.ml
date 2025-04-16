@@ -212,7 +212,7 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
                |> add_successor_opt cond_id i (fun i -> (Cfg.Directed, Node i))
                |> Cfg.add_successor cond_id (Cfg.True, Node (cond_id + 1))))),
         i'' )
-  | Ast.Assign ((ident, Integer), v) ->
+  | Ast.Assign ((ident, TNumber), v) ->
       let v', v_stmts, i' = expr_to_simple_int_expr v g i in
       let id = i' + 1 in
       let command : Cfg.node =
@@ -226,7 +226,7 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
           g |> Cfg.add_node command |> v_stmts (Some id)
           |> add_successor_opt id i (fun i -> (Cfg.Directed, Node i))),
         id )
-  | Ast.Assign ((ident, Boolean), v) ->
+  | Ast.Assign ((ident, TBoolean), v) ->
       let v', v_stmts, i' = expr_to_simple_bool_expr v g i in
       let id = i' + 1 in
       let command : Cfg.node =
