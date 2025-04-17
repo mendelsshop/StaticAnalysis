@@ -24,17 +24,25 @@ struct
           let node =
             List.find (fun { id; command = _ } -> id = node) graph.nodes
           in
-          let preds = NodeReferenceMap.find node_ref graph.predecesseors in
+          let preds =
+            NodeReferenceMap.find_opt node_ref graph.predecesseors
+            |> Option.value ~default:[]
+          in
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeReferenceMap.find |> Fun.flip) state)
-            |> List.fold_left L.join L.bottom
+            |>
+
+          List.fold_left L.join L.bottom
           in
           let y = f node curent_state in
           let worklist' = worklist |> NodeReferenceSet.of_list in
           if y = curent_state then fix worklist' state
           else
-            let succesors = NodeReferenceMap.find node_ref graph.successors in
+            let succesors =
+              NodeReferenceMap.find_opt node_ref graph.successors
+              |> Option.value ~default:[]
+            in
             fix
               (*TODO: find might fail*)
               (NodeReferenceSet.union

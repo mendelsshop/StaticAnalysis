@@ -52,7 +52,12 @@ let _ =
             nodes = [];
           }
       in
-      Cfg.cfg_to_string cfg)
+      let res = IntervalAnalysis.run cfg in
+      Cfg.cfg_to_string cfg ^ "\n"
+      ^ (res |> Cfg.NodeReferenceMap.to_list
+        |> List.map (fun (Cfg.Node k, v) ->
+               string_of_int k ^ ": " ^ IntervalAnalysis.D.to_string v)
+        |> String.concat "\n"))
     parsed
   |> Result.fold ~ok:Fun.id ~error:Fun.id
   |> print_endline

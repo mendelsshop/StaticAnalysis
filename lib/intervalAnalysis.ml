@@ -9,12 +9,14 @@ open Widen (D)
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
   | Integer n -> Interval.Interval (Integer n, Integer n)
-  | Identifier i -> VariableMap.find i (fst s)
+  | Identifier i ->
+      VariableMap.find_opt i (fst s) |> Option.value ~default:Interval.bottom
 
 let eval_simple_bool_expr (e : Cfg.basic_bool_expr) s =
   match e with
   | Boolean b -> Boolean.Boolean b
-  | Identifier i -> VariableMap.find i (snd s)
+  | Identifier i ->
+      VariableMap.find_opt i (snd s) |> Option.value ~default:Boolean.bottom
 
 let abs = function
   | Interval.Bottom -> Interval.Bottom
@@ -143,7 +145,7 @@ let eval_int_expr (e : Cfg.int_expr) s =
       | Subtract -> sub left' right'
       | Multiply -> mul left' right'
       | Divide -> div left' right'
-      | Modulo -> failwith "")
+      | Modulo -> failwith "mod")
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
@@ -154,17 +156,17 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
   | Cfg.BinaryOperator { left; operator; right } -> (
       let _left' = eval_simple_bool_expr left in
       let _right' = eval_simple_bool_expr right in
-      match operator with And -> failwith "" | Or -> failwith "")
+      match operator with And -> failwith "and" | Or -> failwith "or")
   | Cfg.Compare { left; operator; right } -> (
       let _left' = eval_simple_int_expr left in
       let _right' = eval_simple_int_expr right in
       match operator with
-      | LessThen -> failwith ""
-      | GreaterThan -> failwith ""
-      | LessThenOrEqual -> failwith ""
-      | GreaterThanOrEqual -> failwith ""
-      | Equal -> failwith ""
-      | NotEqual -> failwith "")
+      | LessThen -> failwith "<"
+      | GreaterThan -> failwith ">"
+      | LessThenOrEqual -> failwith "<="
+      | GreaterThanOrEqual -> failwith ">="
+      | Equal -> failwith "=="
+      | NotEqual -> failwith "!=")
 
 let transfer (n : node) s =
   match n.command with
@@ -172,6 +174,6 @@ let transfer (n : node) s =
       (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
   | Cfg.AssignBool { target; value } ->
       (fst s, VariableMap.add target (eval_bool_expr value s) (snd s))
-  | Cfg.Cond _ -> failwith ""
+  | Cfg.Cond _ -> failwith "cond"
 
 let run = (Fun.flip run) transfer
