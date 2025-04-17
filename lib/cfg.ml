@@ -4,6 +4,7 @@ module Identifier = struct
   type t = identifier
 
   let compare (Identifier i) (Identifier j) = String.compare i j
+  let to_string (Identifier i) = i
 end
 
 (*TODO: maybe you gadts for expr*)

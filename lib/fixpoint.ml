@@ -1,5 +1,5 @@
 open Cfg
-module VariableMap = Map.Make (Identifier)
+module VariableMap = MapExt.MakeExt (Identifier)
 module NodeSet = Set.Make (Node)
 
 module Make

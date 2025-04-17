@@ -2,6 +2,7 @@ module type Set = sig
   type t
 
   val eq : t -> t -> bool
+  val to_string : t -> string
 end
 
 module type PartiallyOrderdSet = sig
@@ -60,19 +61,22 @@ module type WidenNarrowLattice = sig
 end
 
 module Map = struct
-  module MapSet (M : Map.S) (L : Set) = struct
+  
+  module MapSet (M : MapExt.SExt) (L : Set) = struct
     type t = L.t M.t
 
     let eq = M.equal L.eq
+    let to_string = M.to_string L.to_string
   end
 
-  module MapPartiallyOrderdSet (M : Map.S) (L : PartiallyOrderdSet) = struct
+  module MapPartiallyOrderdSet (M : MapExt.SExt) (L : PartiallyOrderdSet) =
+  struct
     include MapSet (M) (L)
 
     let leq = M.equal L.leq
   end
 
-  module MapJoinSemiLattice (M : Map.S) (L : JoinSemiLattice) = struct
+  module MapJoinSemiLattice (M : MapExt.SExt) (L : JoinSemiLattice) = struct
     let point_wise f =
       M.merge (fun _ x y ->
           f
@@ -87,7 +91,7 @@ module Map = struct
   end
 
   module MapWidenNarrowJoinSemiLattice
-      (M : Map.S)
+      (M : MapExt.SExt)
       (L : WidenNarrowJoinSemiLattice) =
   struct
     include MapJoinSemiLattice (M) (L)
@@ -98,13 +102,14 @@ module Map = struct
 
   (*doesn't have top*)
 
-  module MapLattice (M : Map.S) (L : Lattice) = struct
+  module MapLattice (M : MapExt.SExt) (L : Lattice) = struct
     include MapJoinSemiLattice (M) (L)
 
     let meet = point_wise L.meet
   end
 
-  module MapWidenNarrowLattice (M : Map.S) (L : WidenNarrowLattice) = struct
+  module MapWidenNarrowLattice (M : MapExt.SExt) (L : WidenNarrowLattice) =
+  struct
     include MapWidenNarrowJoinSemiLattice (M) (L)
     include MapLattice (M) (L)
   end
@@ -116,6 +121,7 @@ module Product = struct
 
     let pair_wise f1 f2 (l1, l2) (r1, r2) = (f1 l1 r1, f2 l2 r2)
     let eq (l1, l2) (r1, r2) = L.eq l1 r1 && L1.eq l2 r2
+    let to_string (l, r) = L.to_string l ^ " x " ^ L1.to_string r
   end
 
   module ProductPartiallyOrderdSet
@@ -203,6 +209,11 @@ module Number = struct
     | NInfinity, l | l, NInfinity -> l
     | _, PInfinity | PInfinity, _ -> PInfinity
     | Integer l, Integer r -> Integer (max l r)
+
+  let to_string = function
+    | Integer i -> string_of_int i
+    | NInfinity -> "NInfinity"
+    | PInfinity -> "PInfinity"
 end
 
 module Interval = struct
@@ -253,6 +264,11 @@ module Interval = struct
         let l3 = if l1 = NInfinity then r1 else l1 in
         let r3 = if l2 = PInfinity then r2 else l2 in
         Interval (l3, r3)
+
+  let to_string = function
+    | Bottom -> "bot"
+    | Interval (x, y) ->
+        "(" ^ Number.to_string x ^ ", " ^ Number.to_string y ^ ")"
 end
 
 module Boolean = struct
@@ -284,4 +300,9 @@ module Boolean = struct
 
   let widen = join
   let narrow = meet
+
+  let to_string = function
+    | Boolean b -> string_of_bool b
+    | Bottom -> "bot"
+    | Top -> "top"
 end
