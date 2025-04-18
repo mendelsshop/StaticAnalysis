@@ -31,9 +31,7 @@ struct
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeReferenceMap.find |> Fun.flip) state)
-            |>
-
-          List.fold_left L.join L.bottom
+            |> List.fold_left L.join L.bottom
           in
           let y = f node curent_state in
           let worklist' = worklist |> NodeReferenceSet.of_list in
@@ -50,7 +48,7 @@ struct
                  |> NodeReferenceSet.of_list)
                  worklist')
               (NodeReferenceMap.add node_ref
-                 (U.update node y curent_state)
+                 (U.update node curent_state y)
                  state)
     in
     fix

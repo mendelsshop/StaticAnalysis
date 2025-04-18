@@ -61,7 +61,6 @@ module type WidenNarrowLattice = sig
 end
 
 module Map = struct
-  
   module MapSet (M : MapExt.SExt) (L : Set) = struct
     type t = L.t M.t
 
