@@ -37,7 +37,9 @@ struct
           in
           let y = f node curent_state in
           let worklist' = worklist |> NodeReferenceSet.of_list in
-          if y = curent_state then fix worklist' state
+          let new_state = U.update node curent_state y in
+          let state' = NodeReferenceMap.add node_ref new_state state in
+          if y = curent_state then fix worklist' state'
           else
             let succesors =
               NodeReferenceMap.find_opt node_ref graph.successors
@@ -49,9 +51,7 @@ struct
                  (List.map (fun (_, s) -> s) succesors
                  |> NodeReferenceSet.of_list)
                  worklist')
-              (NodeReferenceMap.add node_ref
-                 (U.update node curent_state y)
-                 state)
+              state'
     in
     fix
       (graph.nodes |> List.map (fun n -> Node n.id) |> NodeReferenceSet.of_list)
@@ -69,5 +69,5 @@ module Widen (L : Lattice.WidenNarrowJoinSemiLattice) =
   Make
     (L)
     (struct
-      let update _ old news = L.widen old news
+      let update n old news = if n.loop_head then L.widen old news else news
     end)

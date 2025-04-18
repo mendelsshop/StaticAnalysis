@@ -78,10 +78,9 @@ module Map = struct
   module MapJoinSemiLattice (M : MapExt.SExt) (L : JoinSemiLattice) = struct
     let point_wise f =
       M.merge (fun _ x y ->
-          f
-            (Option.value ~default:L.bottom y)
-            (Option.value ~default:L.bottom x)
-          |> Option.some)
+          let x = Option.value ~default:L.bottom x in
+          let y = Option.value ~default:L.bottom y in
+          f x y |> Option.some)
 
     include MapPartiallyOrderdSet (M) (L)
 
