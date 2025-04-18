@@ -22,7 +22,9 @@ struct
       | [] -> state
       | (Node node as node_ref) :: worklist ->
           let node =
-            List.find (fun { id; command = _ } -> id = node) graph.nodes
+            List.find
+              (fun { id; command = _; loop_head = _ } -> id = node)
+              graph.nodes
           in
           let preds =
             NodeReferenceMap.find_opt node_ref graph.predecesseors

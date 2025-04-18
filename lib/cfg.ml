@@ -105,15 +105,16 @@ let command_to_string = function
       i ^ " = " ^ bool_expr_to_string value
 
 type edge = Directed | True | False
-type node = { id : int; command : command }
+type node = { id : int; command : command; loop_head : bool }
 
 module Node = struct
   type t = node
 
   let compare { id = id1; _ } { id = id2; _ } = Int.compare id1 id2
 
-  let node_to_string { id; command } =
-    string_of_int id ^ ": " ^ command_to_string command
+  let node_to_string { id; command; loop_head } =
+    string_of_int id ^ ": " ^ command_to_string command ^ " loop_head: "
+    ^ string_of_bool loop_head
 end
 
 module NodeReference = struct
