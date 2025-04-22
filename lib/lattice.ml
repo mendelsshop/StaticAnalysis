@@ -196,6 +196,15 @@ module Number = struct
     | Integer l, Integer r -> l <= r
     | _ -> false
 
+  let compare x y =
+    match (x, y) with
+    | PInfinity, PInfinity | NInfinity, NInfinity -> 0
+    | PInfinity, _ -> -1
+    | _, NInfinity -> -1
+    | NInfinity, _ -> 1
+    | _, PInfinity -> 1
+    | Integer x, Integer y -> compare x y
+
   let min l r =
     match (l, r) with
     | NInfinity, _ | _, NInfinity -> NInfinity

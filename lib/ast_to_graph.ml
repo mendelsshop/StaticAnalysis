@@ -3,14 +3,6 @@ let gensym r =
   incr r;
   "temp" ^ string_of_int current
 
-(*TODO: add succecor/predeccesor
-  it won't always be i+1, because that migth be from another branch of if/while
-  also maybe there is none (last statement/last statement in while that is last statement)
-  maybe pass it as part of continuation
-
-  what i came up with 
-  you pass to the continuation the node index backwards it is up to the caller of the continuation to add the edges
-*)
 let id' _ _ x = x
 
 let add_predecesseor_opt src dest f g =

@@ -147,24 +147,50 @@ let eval_int_expr (e : Cfg.int_expr) s =
       | Divide -> div left' right'
       | Modulo -> failwith "mod")
 
+let cmp is_true is_false x y =
+  match (x, y) with
+  | Interval.Bottom, _ | _, Interval.Bottom -> Boolean.Bottom
+  | Interval (x1, x2), Interval (y1, y2) when is_true (x1, x2) (y1, y2) ->
+      Boolean.Boolean true
+  | Interval (x1, x2), Interval (y1, y2) when is_false (x1, x2) (y1, y2) ->
+      Boolean.Boolean false
+  | _ -> Boolean.Top
+
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_bool_expr e s
   | Cfg.UnaryOperator { operator = Not; operand } -> (
       let operand' = eval_simple_bool_expr operand s in
       match operand' with Boolean b -> Boolean (not b) | _ -> operand')
-  | Cfg.BinaryOperator { left; operator; right } -> (
+  | Cfg.BinaryOperator { left; operator = _; right } ->
       let _left' = eval_simple_bool_expr left in
       let _right' = eval_simple_bool_expr right in
-      match operator with And -> failwith "and" | Or -> failwith "or")
+      Boolean.top
+      (* match operator with And -> failwith "and" | Or -> failwith "or" *)
   | Cfg.Compare { left; operator; right } -> (
-      let _left' = eval_simple_int_expr left in
-      let _right' = eval_simple_int_expr right in
+      let left' = eval_simple_int_expr left s in
+      let right' = eval_simple_int_expr right s in
       match operator with
-      | LessThen -> failwith "<"
-      | GreaterThan -> failwith ">"
-      | LessThenOrEqual -> failwith "<="
-      | GreaterThanOrEqual -> failwith ">="
+      | LessThen ->
+          cmp
+            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+            left' right'
+      | GreaterThan ->
+          cmp
+            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+            left' right'
+      | LessThenOrEqual ->
+          cmp
+            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+            left' right'
+      | GreaterThanOrEqual ->
+          cmp
+            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+            left' right'
       | Equal -> failwith "=="
       | NotEqual -> failwith "!=")
 
@@ -174,6 +200,7 @@ let transfer (n : node) s =
       (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
   | Cfg.AssignBool { target; value } ->
       (fst s, VariableMap.add target (eval_bool_expr value s) (snd s))
-  | Cfg.Cond _ -> failwith "cond"
+  | Cfg.Cond _ -> s
+(* failwith "cond" *)
 
 let run = (Fun.flip run) transfer
