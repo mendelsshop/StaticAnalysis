@@ -260,8 +260,8 @@ module Interval = struct
     match (l, r) with
     | Bottom, t | t, Bottom -> t
     | Interval (l1, l2), Interval (r1, r2) ->
-        let l3 = if Number.leq l1 r1 then l1 else NInfinity in
-        let r3 = if Number.leq r2 l2 then l2 else PInfinity in
+        let l3 = if Number.compare l1 r1 <= 0 then l1 else NInfinity in
+        let r3 = if Number.compare l2 r2 >= 0 then l2 else PInfinity in
         Interval (l3, r3)
 
   let narrow l r =

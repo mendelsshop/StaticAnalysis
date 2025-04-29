@@ -30,6 +30,10 @@ struct
             NodeReferenceMap.find_opt node_ref graph.predecesseors
             |> Option.value ~default:[]
           in
+          let old_state =
+            NodeReferenceMap.find_opt node_ref state
+            |> Option.value ~default:L.bottom
+          in
           let curent_state =
             preds |> List.map snd
             |> List.map ((NodeReferenceMap.find |> Fun.flip) state)
@@ -39,7 +43,7 @@ struct
           let worklist' = worklist |> NodeReferenceSet.of_list in
           let new_state = U.update node curent_state y in
           let state' = NodeReferenceMap.add node_ref new_state state in
-          if L.eq y curent_state then fix worklist' state'
+          if L.leq new_state old_state then fix worklist' state
           else
             let succesors =
               NodeReferenceMap.find_opt node_ref graph.successors
