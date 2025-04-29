@@ -193,7 +193,7 @@ module Number = struct
   let eq l r =
     match (l, r) with
     | NInfinity, NInfinity | PInfinity, PInfinity -> true
-    | Integer l, Integer r -> l <= r
+    | Integer l, Integer r -> l = r
     | _ -> false
 
   let compare x y =

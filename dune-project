@@ -19,7 +19,7 @@
  (name StaticAnalysis)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml AMPL)
+ (depends ocaml AMPCL)
  (tags
   ("add topics" "to describe" your project)))
 

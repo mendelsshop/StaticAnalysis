@@ -39,7 +39,7 @@ struct
           let worklist' = worklist |> NodeReferenceSet.of_list in
           let new_state = U.update node curent_state y in
           let state' = NodeReferenceMap.add node_ref new_state state in
-          if y = curent_state then fix worklist' state'
+          if L.eq y curent_state then fix worklist' state'
           else
             let succesors =
               NodeReferenceMap.find_opt node_ref graph.successors
@@ -47,10 +47,9 @@ struct
             in
             fix
               (*TODO: find might fail*)
-              (NodeReferenceSet.union
+              (NodeReferenceSet.union worklist'
                  (List.map (fun (_, s) -> s) succesors
-                 |> NodeReferenceSet.of_list)
-                 worklist')
+                 |> NodeReferenceSet.of_list))
               state'
     in
     fix
