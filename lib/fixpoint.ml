@@ -41,7 +41,7 @@ struct
           in
           let y = f node curent_state in
           let worklist' = worklist |> NodeReferenceSet.of_list in
-          let new_state = U.update node curent_state y in
+          let new_state = U.update node old_state y in
           let state' = NodeReferenceMap.add node_ref new_state state in
           if L.leq new_state old_state then fix worklist' state
           else
