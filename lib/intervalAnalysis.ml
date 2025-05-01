@@ -4,7 +4,13 @@ open Lattice
 module IntervalMap = Map.MapWidenNarrowLattice (VariableMap) (Interval)
 module BooleanMap = Map.MapWidenNarrowLattice (VariableMap) (Boolean)
 module D = Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (BooleanMap)
-open Widen (D)
+
+open
+  Widen
+    (D)
+    (struct
+      let delay = 15
+    end)
 
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
