@@ -13,13 +13,13 @@ module Make
 struct
   type state = L.t NodeReferenceMap.t
 
+  let state graph =
+    graph.nodes
+    |> List.map (fun n -> (Node n.id, L.bottom))
+    |> NodeReferenceMap.of_list
+
   (*TODO: is using set for worklist fine, as that means no duplicates*)
-  let run graph f =
-    let state =
-      graph.nodes
-      |> List.map (fun n -> (Node n.id, L.bottom))
-      |> NodeReferenceMap.of_list
-    in
+  let run' graph f state =
     let rec fix worklist (state : state) update_state =
       match NodeReferenceSet.elements worklist with
       | [] -> state
@@ -68,6 +68,8 @@ struct
     fix
       (graph.nodes |> List.map (fun n -> Node n.id) |> NodeReferenceSet.of_list)
       state U.init
+
+  let run g f = run' g f (state g)
 end
 
 module Default (L : Lattice.JoinSemiLattice) =
@@ -132,8 +134,9 @@ struct
       end)
 
   (* this is for foward analysis so we give the transfer function a list of successor *)
-  let run g f =
-    F.run g (fun n s ->
+  let run' g f s =
+    F.run' g
+      (fun n s ->
         let inState =
           NodeReferenceMap.find_opt (Node n.id) s
           |> Option.value ~default:L.bottom
@@ -143,4 +146,51 @@ struct
           |> Option.value ~default:[]
         in
         f n inState successors)
+      s
+
+  let run g f = run' g f (F.state g)
+end
+
+module Narrow'
+    (L : Lattice.WidenNarrowJoinSemiLattice)
+    (W : sig
+      val delay : int
+    end) =
+struct
+  module L' = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+
+  module F =
+    Make
+      (L')
+      (struct
+        type t = int NodeReferenceMap.t
+
+        let init = NodeReferenceMap.empty
+
+        let update s n old news =
+          if n.loop_head then
+            let delayed =
+              NodeReferenceMap.find_opt (Node n.id) s |> Option.value ~default:0
+            in
+            let s' = NodeReferenceMap.add (Node n.id) (delayed + 1) s in
+            ((if delayed > W.delay then L'.narrow old news else news), s')
+          else (news, s)
+      end)
+
+  (* this is for foward analysis so we give the transfer function a list of successor *)
+  let run' g f s =
+    F.run' g
+      (fun n s ->
+        let inState =
+          NodeReferenceMap.find_opt (Node n.id) s
+          |> Option.value ~default:L.bottom
+        in
+        let successors =
+          NodeReferenceMap.find_opt (Node n.id) g.successors
+          |> Option.value ~default:[]
+        in
+        f n inState successors)
+      s
+
+  let run g f = run' g f (F.state g)
 end

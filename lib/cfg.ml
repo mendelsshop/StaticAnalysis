@@ -1,6 +1,5 @@
-
 module Identifier = struct
-type identifier = Identifier of string
+  type identifier = Identifier of string
   type t = identifier
 
   let compare (Identifier i) (Identifier j) = String.compare i j

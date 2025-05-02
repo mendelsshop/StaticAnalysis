@@ -12,7 +12,14 @@ module F =
       let delay = 70
     end)
 
-open F
+module F' =
+  Narrow'
+    (D)
+    (struct
+      let delay = 70
+    end)
+
+(* open F *)
 
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
@@ -232,4 +239,7 @@ let transfer (n : node) s successors =
       |> NodeReferenceMap.of_list
 (* failwith "cond" *)
 
-let run = (Fun.flip run) transfer
+let run g =
+  let s = F.F.state g in
+  let s' = F.run' g transfer s in
+  F'.run' g transfer s'
