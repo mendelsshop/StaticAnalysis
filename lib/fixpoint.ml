@@ -101,3 +101,39 @@ module Widen
           ((if delayed > W.delay then L.widen old news else news), s')
         else (news, s)
     end)
+
+(* widening, but transfer funtion can return multiple states for different nodes. *)
+(* maybe the lattice should be L * Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap)(L) and we do comparison based L, and other operations on everything *)
+(*   the idea is that L is catch all output of this state and the map is specific to any succesor/predescor state *)
+module Widen'
+    (L : Lattice.WidenNarrowJoinSemiLattice)
+    (W : sig
+      val delay : int
+    end) =
+struct
+  module L' = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+
+  module F =
+    Make
+      (L')
+      (struct
+        type t = int NodeReferenceMap.t
+
+        let init = NodeReferenceMap.empty
+
+        let update s n old news =
+          if n.loop_head then
+            let delayed =
+              NodeReferenceMap.find_opt (Node n.id) s |> Option.value ~default:0
+            in
+            let s' = NodeReferenceMap.add (Node n.id) (delayed + 1) s in
+            ((if delayed > W.delay then L'.widen old news else news), s')
+          else (news, s)
+      end)
+
+  let run g f =
+    F.run g (fun n s ->
+        NodeReferenceMap.find_opt (Node n.id) s
+        |> Option.value ~default:L.bottom
+        |> f n)
+end

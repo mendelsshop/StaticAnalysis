@@ -121,10 +121,11 @@ module NodeReference = struct
   type t = node_reference
 
   let compare (Node id1) (Node id2) = Int.compare id1 id2
+  let to_string (Node n) = string_of_int n
 end
 
 module NodeMap = Map.Make (Node)
-module NodeReferenceMap = Map.Make (NodeReference)
+module NodeReferenceMap = MapExt.MakeExt (NodeReference)
 module NodeReferenceSet = Set.Make (NodeReference)
 
 type graph = {
