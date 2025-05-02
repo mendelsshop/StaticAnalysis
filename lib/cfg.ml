@@ -1,6 +1,6 @@
-type identifier = Identifier of string
 
 module Identifier = struct
+type identifier = Identifier of string
   type t = identifier
 
   let compare (Identifier i) (Identifier j) = String.compare i j
@@ -8,8 +8,8 @@ module Identifier = struct
 end
 
 (*TODO: maybe you gadts for expr*)
-type basic_bool_expr = Boolean of bool | Identifier of identifier
-type basic_int_expr = Integer of int | Identifier of identifier
+type basic_bool_expr = Boolean of bool | Identifier of Identifier.t
+type basic_int_expr = Integer of int | Identifier of Identifier.t
 type int_unary_operator = Negate | AbsoluteValue
 type bool_unary_operator = Not
 type node_reference = Node of int
@@ -51,8 +51,8 @@ type int_expr =
     }
 
 type command =
-  | AssignInt of { target : identifier; value : int_expr }
-  | AssignBool of { target : identifier; value : bool_expr }
+  | AssignInt of { target : Identifier.t; value : int_expr }
+  | AssignBool of { target : Identifier.t; value : bool_expr }
   | Cond of bool_expr
 
 let int_expr_to_string = function

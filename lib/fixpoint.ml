@@ -52,7 +52,7 @@ struct
           string_of_int node.id ^ ": " ^ L.to_string new_state |> print_endline;
 
           print_endline (Cfg.Node.node_to_string node);
-          if L.leq new_state old_state then fix worklist' state update_state'
+          if L.eq new_state old_state then fix worklist' state update_state'
           else
             let succesors =
               NodeReferenceMap.find_opt node_ref graph.successors

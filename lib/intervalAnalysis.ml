@@ -5,12 +5,14 @@ module IntervalMap = Map.MapWidenNarrowLattice (VariableMap) (Interval)
 module BooleanMap = Map.MapWidenNarrowLattice (VariableMap) (Boolean)
 module D = Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (BooleanMap)
 
-open
-  Widen
+module F =
+  Widen'
     (D)
     (struct
-      let delay = 15
+      let delay = 70
     end)
+
+open F
 
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
@@ -200,13 +202,34 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       | Equal -> failwith "=="
       | NotEqual -> failwith "!=")
 
-let transfer (n : node) s =
+let transfer (n : node) s successors =
   match n.command with
   | Cfg.AssignInt { target; value } ->
-      (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
+      let result =
+        (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
+      in
+      successors
+      |> List.map (fun (_, node) -> (node, result))
+      |> NodeReferenceMap.of_list
   | Cfg.AssignBool { target; value } ->
-      (fst s, VariableMap.add target (eval_bool_expr value s) (snd s))
-  | Cfg.Cond _ -> s
+      let result =
+        (fst s, VariableMap.add target (eval_bool_expr value s) (snd s))
+      in
+      successors
+      |> List.map (fun (_, node) -> (node, result))
+      |> NodeReferenceMap.of_list
+  | Cfg.Cond c ->
+      let c' = eval_bool_expr c s in
+      successors
+      |> List.map (fun (edge, node) ->
+             ( node,
+               match (edge, c') with
+               | True _, (Boolean.Boolean true | Boolean.Top) -> s
+               | True _, _  -> D.bottom
+               | False _, (Boolean.Boolean false | Boolean.Top) -> s
+               | False _, _  -> D.bottom
+               | _ -> s ))
+      |> NodeReferenceMap.of_list
 (* failwith "cond" *)
 
 let run = (Fun.flip run) transfer
