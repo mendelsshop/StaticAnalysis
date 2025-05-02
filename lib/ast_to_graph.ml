@@ -224,10 +224,14 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
           c_stmts false (Some cond_id)
             (Cfg.add_node command
                (g |> a_stmts i |> t_stmts i
-               |> Cfg.add_predecesseor (i'' + 1) (Cfg.False, Node cond_id)
-               |> Cfg.add_predecesseor (cond_id + 1) (Cfg.True, Node cond_id)
-               |> Cfg.add_successor cond_id (Cfg.False, Node (i'' + 1))
-               |> Cfg.add_successor cond_id (Cfg.True, Node (cond_id + 1))))),
+               |> Cfg.add_predecesseor (i'' + 1)
+                    (Cfg.False (Basic c'), Node cond_id)
+               |> Cfg.add_predecesseor (cond_id + 1)
+                    (Cfg.True (Basic c'), Node cond_id)
+               |> Cfg.add_successor cond_id
+                    (Cfg.False (Basic c'), Node (i'' + 1))
+               |> Cfg.add_successor cond_id
+                    (Cfg.True (Basic c'), Node (cond_id + 1))))),
         i''' )
   | Ast.While (c, t) ->
       let c', c_stmts, i', c_already_simple = expr_to_simple_bool_expr c g i in
@@ -246,10 +250,14 @@ let rec stmt_to_cfg (s : Ast.statement) g i =
             (Cfg.add_node command
                (g
                |> t_stmts (Some (start_id + 1))
-               |> add_predecesseor_opt i (Cfg.False, Node cond_id) (fun i -> i)
-               |> Cfg.add_predecesseor (cond_id + 1) (Cfg.True, Node cond_id)
-               |> add_successor_opt cond_id i (fun i -> (Cfg.False, Node i))
-               |> Cfg.add_successor cond_id (Cfg.True, Node (cond_id + 1))))),
+               |> add_predecesseor_opt i (Cfg.False (Basic c'), Node cond_id)
+                    (fun i -> i)
+               |> Cfg.add_predecesseor (cond_id + 1)
+                    (Cfg.True (Basic c'), Node cond_id)
+               |> add_successor_opt cond_id i (fun i ->
+                      (Cfg.False (Basic c'), Node i))
+               |> Cfg.add_successor cond_id
+                    (Cfg.True (Basic c'), Node (cond_id + 1))))),
         i'' )
   | Ast.Assign ((ident, TNumber), v) ->
       let v', v_stmts, i', _ = expr_to_simple_int_expr v g i in

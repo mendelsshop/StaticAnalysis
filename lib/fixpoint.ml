@@ -131,9 +131,16 @@ struct
           else (news, s)
       end)
 
+  (* this is for foward analysis so we give the transfer function a list of successor *)
   let run g f =
     F.run g (fun n s ->
-        NodeReferenceMap.find_opt (Node n.id) s
-        |> Option.value ~default:L.bottom
-        |> f n)
+        let inState =
+          NodeReferenceMap.find_opt (Node n.id) s
+          |> Option.value ~default:L.bottom
+        in
+        let successors =
+          NodeReferenceMap.find_opt (Node n.id) g.successors
+          |> Option.value ~default:[]
+        in
+        f n inState successors)
 end

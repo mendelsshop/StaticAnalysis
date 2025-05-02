@@ -104,7 +104,10 @@ let command_to_string = function
   | AssignBool { target = Identifier i; value } ->
       i ^ " = " ^ bool_expr_to_string value
 
-type edge = Directed | True | False
+(* TODO: maybe move all instructions to edges (nodes would just be symbolic) *)
+
+(* for backwards analysis it is usefull to have condtion on edge *)
+type edge = Directed | True of bool_expr | False of bool_expr
 type node = { id : int; command : command; loop_head : bool }
 
 module Node = struct
@@ -163,7 +166,7 @@ let edges_to_string (Node n, (e : (edge * node_reference) list)) =
   List.map
     (fun (e, Node n') ->
       string_of_int n ^ " -"
-      ^ (match e with True -> "true" | False -> "false" | Directed -> "")
+      ^ (match e with True _ -> "true" | False _ -> "false" | Directed -> "")
       ^ "-> " ^ string_of_int n')
     e
   |> String.concat "\n"
