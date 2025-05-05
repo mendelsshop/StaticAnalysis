@@ -215,29 +215,29 @@ let transfer (n : node) s successors =
       let result =
         (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
       in
-      successors
-      |> List.map (fun (_, node) -> (node, result))
-      |> NodeReferenceMap.of_list
+      ( result,
+        successors
+        |> List.map (fun (_, node) -> (node, result))
+        |> NodeReferenceMap.of_list )
   | Cfg.AssignBool { target; value } ->
       let result =
         (fst s, VariableMap.add target (eval_bool_expr value s) (snd s))
       in
-      successors
-      |> List.map (fun (_, node) -> (node, result))
-      |> NodeReferenceMap.of_list
+      ( result,
+        successors
+        |> List.map (fun (_, node) -> (node, result))
+        |> NodeReferenceMap.of_list )
   | Cfg.Cond c ->
       let c' = eval_bool_expr c s in
-      successors
-      |> List.map (fun (edge, node) ->
-             ( node,
-               match (edge, c') with
-               | True _, (Boolean.Boolean true | Boolean.Top) -> s
-               | True _, _  -> D.bottom
-               | False _, (Boolean.Boolean false | Boolean.Top) -> s
-               | False _, _  -> D.bottom
-               | _ -> s ))
-      |> NodeReferenceMap.of_list
-(* failwith "cond" *)
+      ( s,
+        successors
+        |> List.map (fun (edge, node) ->
+               ( node,
+                 match (edge, c') with
+                 | True _, (Boolean.Boolean false | Boolean.Bottom) -> D.bottom
+                 | False _, (Boolean.Boolean true | Boolean.Bottom) -> D.bottom
+                 | _ -> s ))
+        |> NodeReferenceMap.of_list )
 
 let run g =
   let s = F.F.state g in

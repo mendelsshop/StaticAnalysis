@@ -48,9 +48,13 @@ struct
             U.update update_state node old_state y
           in
           let state' = NodeReferenceMap.add node_ref new_state state in
-          string_of_int node.id ^ ": " ^ L.to_string old_state |> print_endline;
-          string_of_int node.id ^ ": " ^ L.to_string new_state |> print_endline;
-
+          "old " ^ string_of_int node.id ^ ": " ^ L.to_string old_state
+          |> print_endline;
+          "current " ^ string_of_int node.id ^ ": " ^ L.to_string curent_state
+          |> print_endline;
+          "y " ^ string_of_int node.id ^ ": " ^ L.to_string y |> print_endline;
+          "new " ^ string_of_int node.id ^ ": " ^ L.to_string new_state
+          |> print_endline;
           print_endline (Cfg.Node.node_to_string node);
           if L.eq new_state old_state then fix worklist' state update_state'
           else
@@ -113,7 +117,8 @@ module Widen'
       val delay : int
     end) =
 struct
-  module L' = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+  module M = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+  module L' = Lattice.Product.ProductWidenNarrowJoinSemiLattice (L) (M)
 
   module F =
     Make
@@ -138,7 +143,7 @@ struct
     F.run' g
       (fun n s ->
         let inState =
-          NodeReferenceMap.find_opt (Node n.id) s
+          NodeReferenceMap.find_opt (Node n.id) (snd s)
           |> Option.value ~default:L.bottom
         in
         let successors =
@@ -157,7 +162,8 @@ module Narrow'
       val delay : int
     end) =
 struct
-  module L' = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+  module M = Lattice.Map.MapWidenNarrowJoinSemiLattice (NodeReferenceMap) (L)
+  module L' = Lattice.Product.ProductWidenNarrowJoinSemiLattice (L) (M)
 
   module F =
     Make
@@ -182,7 +188,7 @@ struct
     F.run' g
       (fun n s ->
         let inState =
-          NodeReferenceMap.find_opt (Node n.id) s
+          NodeReferenceMap.find_opt (Node n.id) (snd s)
           |> Option.value ~default:L.bottom
         in
         let successors =
