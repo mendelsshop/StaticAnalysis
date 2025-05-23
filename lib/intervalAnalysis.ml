@@ -2,7 +2,10 @@ open Fixpoint
 open Cfg
 open Lattice
 module IntervalMap = Map.MapWidenNarrowLattice (VariableMap) (Interval)
-module BooleanMap = Map.MapWidenNarrowLattice (VariableMap) (Boolean)
+
+module BooleanMap =
+  Map.MapWidenNarrowJoinSemiLattice (VariableMap) (RelationalBoolean)
+
 module D = Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (BooleanMap)
 
 module F =
@@ -20,6 +23,7 @@ module F' =
     end)
 
 (* open F *)
+(* TODO: what is top for relational boolean *)
 
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
@@ -29,9 +33,10 @@ let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
 
 let eval_simple_bool_expr (e : Cfg.basic_bool_expr) s =
   match e with
-  | Boolean b -> Boolean.Boolean b
+  | Boolean b -> (Boolean.Boolean b, (VariableMap.empty, VariableMap.empty))
   | Identifier i ->
-      VariableMap.find_opt i (snd s) |> Option.value ~default:Boolean.bottom
+      VariableMap.find_opt i (snd s)
+      |> Option.value ~default:RelationalBoolean.bottom
 
 let abs = function
   | Interval.Bottom -> Interval.Bottom
@@ -164,24 +169,28 @@ let eval_int_expr (e : Cfg.int_expr) s =
 
 let cmp is_true is_false x y =
   match (x, y) with
-  | Interval.Bottom, _ | _, Interval.Bottom -> Boolean.Bottom
+  | Interval.Bottom, _ | _, Interval.Bottom -> RelationalBoolean.bottom
   | Interval (x1, x2), Interval (y1, y2) when is_true (x1, x2) (y1, y2) ->
-      Boolean.Boolean true
+      (Boolean.Boolean true, (VariableMap.empty, VariableMap.empty))
   | Interval (x1, x2), Interval (y1, y2) when is_false (x1, x2) (y1, y2) ->
-      Boolean.Boolean false
-  | _ -> Boolean.Top
+      (Boolean.Boolean false, (VariableMap.empty, VariableMap.empty))
+  | _ -> (Boolean.Top, (VariableMap.empty, VariableMap.empty))
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_bool_expr e s
   | Cfg.UnaryOperator { operator = Not; operand } -> (
       let operand' = eval_simple_bool_expr operand s in
-      match operand' with Boolean b -> Boolean (not b) | _ -> operand')
+      match operand' with
+      | Boolean b, (t, f) -> (Boolean (not b), (f, t))
+      | _ -> operand')
   | Cfg.BinaryOperator { left; operator = _; right } ->
       let _left' = eval_simple_bool_expr left in
       let _right' = eval_simple_bool_expr right in
-      Boolean.top
-      (* match operator with And -> failwith "and" | Or -> failwith "or" *)
+      (Boolean.Top, (VariableMap.empty, VariableMap.empty))
+      (* match operator with *)
+      (* | And -> failwith "and" *)
+      (* | Or -> failwith "or") *)
   | Cfg.Compare { left; operator; right } -> (
       let left' = eval_simple_int_expr left s in
       let right' = eval_simple_int_expr right s in
@@ -212,6 +221,7 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
 let transfer (n : node) s successors =
   match n.command with
   | Cfg.AssignInt { target; value } ->
+      (* TODO: update any boolean t/f that this invalidates *)
       let result =
         (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
       in
@@ -229,13 +239,17 @@ let transfer (n : node) s successors =
         |> NodeReferenceMap.of_list )
   | Cfg.Cond c ->
       let c' = eval_bool_expr c s in
+      print_endline (RelationalBoolean.to_string c');
       ( s,
         successors
         |> List.map (fun (edge, node) ->
                ( node,
                  match (edge, c') with
-                 | True _, (Boolean.Boolean false | Boolean.Bottom) -> D.bottom
-                 | False _, (Boolean.Boolean true | Boolean.Bottom) -> D.bottom
+                 (* TODO: do filtering based on true or false information *)
+                 | True _, (Boolean.Boolean false, _ | Boolean.Bottom, _) ->
+                     D.bottom
+                 | False _, (Boolean.Boolean true, _ | Boolean.Bottom, _) ->
+                     D.bottom
                  | _ -> s ))
         |> NodeReferenceMap.of_list )
 

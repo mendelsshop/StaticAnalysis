@@ -6,6 +6,8 @@ module Identifier = struct
   let to_string (Identifier i) = i
 end
 
+module VariableMap = MapExt.MakeExt (Identifier)
+
 (*TODO: maybe you gadts for expr*)
 type basic_bool_expr = Boolean of bool | Identifier of Identifier.t
 type basic_int_expr = Integer of int | Identifier of Identifier.t

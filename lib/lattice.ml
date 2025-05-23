@@ -266,7 +266,8 @@ module Interval = struct
 
   let narrow l r =
     match (l, r) with
-    | Bottom, _ | _, Bottom -> Bottom
+    | Bottom, t | t, Bottom -> t
+    (* | Bottom, _ | _, Bottom -> Bottom *)
     | Interval (l1, l2), Interval (r1, r2) ->
         let l3 = if l1 = NInfinity then r1 else l1 in
         let r3 = if l2 = PInfinity then r2 else l2 in
@@ -312,4 +313,16 @@ module Boolean = struct
     | Boolean b -> string_of_bool b
     | Bottom -> "bot"
     | Top -> "top"
+end
+
+module RelationalBoolean = struct
+  module IntervalMap = Map.MapWidenNarrowLattice (Cfg.VariableMap) (Interval)
+
+  module TrueFalse =
+    Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (IntervalMap)
+
+  module Boolean =
+    Product.ProductWidenNarrowJoinSemiLattice (Boolean) (TrueFalse)
+
+  include Boolean
 end
