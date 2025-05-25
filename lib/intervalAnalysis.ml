@@ -218,12 +218,24 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       | Equal -> failwith "=="
       | NotEqual -> failwith "!=")
 
+(* TODO: maybe only kill the variable if the update actually changes the value *)
+let filter variable map =
+  let filter_string_map =
+    VariableMap.filter (fun id -> Fun.const (id <> variable))
+  in
+  let filter_boolean (v, (t, f)) =
+    (v, (filter_string_map t, filter_string_map f))
+  in
+  BooleanMap.map filter_boolean map
+
 let transfer (n : node) s successors =
   match n.command with
   | Cfg.AssignInt { target; value } ->
-      (* TODO: update any boolean t/f that this invalidates *)
+      let boolean_state = snd s in
+      (* update any boolean t/f that this invalidates *)
+      let boolean_state = filter target boolean_state in
       let result =
-        (VariableMap.add target (eval_int_expr value s) (fst s), snd s)
+        (VariableMap.add target (eval_int_expr value s) (fst s), boolean_state)
       in
       ( result,
         successors

@@ -62,6 +62,8 @@ end
 
 module Map = struct
   module MapSet (M : MapExt.SExt) (L : Set) = struct
+    include M
+
     type t = L.t M.t
 
     let eq = M.equal L.eq
