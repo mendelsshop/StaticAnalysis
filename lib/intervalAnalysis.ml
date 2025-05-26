@@ -167,15 +167,13 @@ let eval_int_expr (e : Cfg.int_expr) s =
       | Divide -> div left' right'
       | Modulo -> failwith "mod")
 
-let cmp is_true is_false x y =
+let cmp ?(t = VariableMap.empty) ?(f = VariableMap.empty) is_true is_false x y =
   match (x, y) with
   | Interval.Bottom, _ | _, Interval.Bottom -> RelationalBoolean.bottom
   | Interval (x1, x2), Interval (y1, y2) ->
-      if is_true (x1, x2) (y1, y2) then
-        (Boolean.Boolean true, (VariableMap.empty, VariableMap.empty))
-      else if is_false (x1, x2) (y1, y2) then
-        (Boolean.Boolean false, (VariableMap.empty, VariableMap.empty))
-      else (Boolean.Top, (VariableMap.empty, VariableMap.empty))
+      if is_true (x1, x2) (y1, y2) then (Boolean.Boolean true, (t, f))
+      else if is_false (x1, x2) (y1, y2) then (Boolean.Boolean false, (t, f))
+      else (Boolean.Top, (t, f))
 
 let filter_ident = function Cfg.Identifier i -> Some i | _ -> None
 
@@ -191,37 +189,87 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       let _left' = eval_simple_bool_expr left in
       let _right' = eval_simple_bool_expr right in
       (Boolean.Top, (VariableMap.empty, VariableMap.empty))
-      (* match operator with *)
-      (* | And -> failwith "and" *)
-      (* | Or -> failwith "or") *)
+  (* match operator with *)
+  (* | And -> failwith "and" *)
+  (* | Or -> failwith "or") *)
+  (* | Cfg.Compare { left = Identifier i; operator = LessThen; right = Integer n } *)
+  (*   -> ( *)
+  (*     let left_v = eval_simple_int_expr (Identifier i) s in *)
+  (*     let n = Number.Integer n in *)
+  (*     match left_v with *)
+  (*     | Interval (a, b) when Number.compare a n < 0 -> *)
+  (*         ( Boolean.Top, *)
+  (*           ( VariableMap.singleton i (Interval.Interval (a, Number.min b n)), *)
+  (*             VariableMap.empty ) ) *)
+  (*     | _ -> RelationalBoolean.bottom) *)
+  | Cfg.Compare
+      { left = Identifier i; operator = LessThen; right = Identifier i' } -> (
+      let left_v = eval_simple_int_expr (Identifier i) s in
+      let right_v = eval_simple_int_expr (Identifier i') s in
+      match (left_v, right_v) with
+      | Interval (a, b), Interval (c, d) when Number.compare a d < 0 ->
+          ( Boolean.Top,
+            ( VariableMap.of_list
+                [
+                  (i, Interval.Interval (a, Number.min b d));
+                  (i', Interval.Interval (Number.max a c, d));
+                ],
+              VariableMap.empty ) )
+      | _ -> RelationalBoolean.bottom)
   | Cfg.Compare { left; operator; right } -> (
-      let _left_ident = filter_ident left in
-      let _right_ident = filter_ident right in
       let left' = eval_simple_int_expr left s in
       let right' = eval_simple_int_expr right s in
-      match operator with
-      | LessThen ->
-          cmp
-            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
-            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
-            left' right'
-      | GreaterThan ->
-          cmp
-            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
-            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
-            left' right'
-      | LessThenOrEqual ->
-          cmp
-            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
-            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
-            left' right'
-      | GreaterThanOrEqual ->
-          cmp
-            (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
-            (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
-            left' right'
-      | Equal -> failwith "=="
-      | NotEqual -> failwith "!=")
+      let left_v =
+        match (left', right') with
+        | Interval (a, b), Interval (_c, d) when Number.compare a d < 0 ->
+            (* might be the right thing for less than equal not less than *)
+            Interval.Interval (a, Number.min b d)
+        | _ -> Interval.Bottom
+      in
+      let right_v =
+        match (left', right') with
+        | Interval (a, b), Interval (c, d) when Number.compare a d < 0 ->
+            (* might be the right thing for less than equal not less than *)
+            Interval.Interval (Number.max b c, d)
+        | _ -> Interval.Bottom
+      in
+
+      let _left_ident =
+        filter_ident left |> Option.map (fun l -> (l, left_v)) |> Option.to_list
+      in
+      let _right_ident =
+        filter_ident right
+        |> Option.map (fun l -> (l, right_v))
+        |> Option.to_list
+      in
+      let t = _left_ident @ _right_ident |> VariableMap.of_list in
+      if left' == Interval.Bottom || right' == Interval.Bottom then
+        RelationalBoolean.bottom
+      else
+        match operator with
+        | LessThen ->
+            cmp ~t
+              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+              (* (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 > 0) *)
+              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+              left' right'
+        | GreaterThan ->
+            cmp
+              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+              left' right'
+        | LessThenOrEqual ->
+            cmp
+              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+              left' right'
+        | GreaterThanOrEqual ->
+            cmp
+              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+              left' right'
+        | Equal -> failwith "=="
+        | NotEqual -> failwith "!=")
 
 (* TODO: maybe only kill the variable if the update actually changes the value *)
 let filter variable map =
@@ -236,8 +284,8 @@ let filter variable map =
 let update_env s int_s =
   let old_int_s = fst s in
   let new_int_s =
-    (* TODO: better way to merge the two maps *)
     (* updates the env prefering the new state *)
+    (* TODO: better way to merge the two maps *)
     VariableMap.merge
       (fun _ a b -> Option.map Option.some b |> Option.value ~default:a)
       old_int_s int_s
@@ -273,12 +321,12 @@ let transfer (n : node) s successors =
         |> List.map (fun (edge, node) ->
                ( node,
                  match (edge, c') with
-                 (* TODO: do filtering based on true or false information *)
-                 | True _, ((Boolean.Boolean false | Boolean.Top), (_t, _)) ->
-                     D.bottom
-                 | _, (Boolean.Bottom, _) -> D.bottom
-                 | False _, ((Boolean.Boolean true | Boolean.Top), (_, _f)) ->
+                 | True _, ((Boolean.Boolean true | Boolean.Top), (t, _)) ->
+                     update_env s t
+                 | False _, ((Boolean.Boolean false | Boolean.Top), (_, _f)) ->
                      update_env s _f
+                 | _, ((Boolean.Bottom | Boolean.Boolean _), _) -> D.bottom
+                 (* is this last case needed *)
                  | _ -> s ))
         |> NodeReferenceMap.of_list )
 
