@@ -257,8 +257,15 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
                left' right')
             (t_and_f
+             (*  on the number line we have: ...[a, b]...[c, d]... *)
+             (* or really [a ... {c ... b ] ... d} *)
                ~t:(fun a _b _c d -> Number.compare a d < 0)
+                 (*  [a ... [c ... b ] ... d] *)
+                 (* [a, min(b d)] *)
                ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+                 (*  [a ... [c ... b ] ... d] *)
+                 (* [max(b , c) , d)*)
+                 (* i.e.:  when this is true our rhs is greater than our end of our lhs *)
                ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
                ())
       | GreaterThan ->
@@ -268,9 +275,12 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
                left' right')
             (t_and_f
-               ~t:(fun a _b _c d -> Number.compare a d <= 0)
-               ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
-               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+             (* on the number line we have: ...[c, d]...[a, b]... *)
+             (* or really [c ... {a ... d ] ... b} *)
+               ~t:(fun _a b c _d -> Number.compare c b < 0)
+                 (*  really [c ... [a ... d ] ... b] *)
+               ~t_l:(fun a b _c d -> Interval.Interval (Number.max a d, b))
+               ~t_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
                ())
       | LessThenOrEqual ->
           uncurry
@@ -278,14 +288,25 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
                (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
                left' right')
-            (t_and_f ())
+            (t_and_f
+               ~t:(fun a _b _c d -> Number.compare a d <= 0)
+               ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+               ())
       | GreaterThanOrEqual ->
           uncurry
             (cmp
                (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
                (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
                left' right')
-            (t_and_f ())
+            (t_and_f
+             (* on the number line we have: ...[c, d]...[a, b]... *)
+             (* or really [c ... {a ... d ] ... b} *)
+               ~t:(fun a _b _c d -> Number.compare a d >= 0)
+                 (*  really [c ... [a ... d ] ... b] *)
+               ~t_l:(fun a b _c d -> Interval.Interval (Number.max a d, b))
+               ~t_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
+               ())
       | Equal -> failwith "=="
       | NotEqual -> failwith "!=")
 
