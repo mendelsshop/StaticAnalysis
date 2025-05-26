@@ -184,11 +184,15 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       let operand' = eval_simple_bool_expr operand s in
       match operand' with
       | Boolean b, (t, f) -> (Boolean (not b), (f, t))
-      | _ -> operand')
-  | Cfg.BinaryOperator { left; operator = _; right } ->
-      let _left' = eval_simple_bool_expr left in
-      let _right' = eval_simple_bool_expr right in
-      (Boolean.Top, (VariableMap.empty, VariableMap.empty))
+      (* even if the boolean value is unknown we can still flip the filtering values *)
+      | Top, (t, f) -> (Boolean.Top, (f, t))
+      | Bottom, _ -> ComplexBoolean.bottom)
+  | Cfg.BinaryOperator { left; operator = _; right } -> (
+      let _left' = eval_simple_bool_expr left s in
+      let _right' = eval_simple_bool_expr right s in
+      match (_left', _right') with
+      | (Boolean.Bottom, _), _ | _, (Boolean.Bottom, _) -> ComplexBoolean.bottom
+      | _ -> (Boolean.Top, (VariableMap.empty, VariableMap.empty)))
   (* match operator with *)
   (* | And -> failwith "and" *)
   (* | Or -> failwith "or") *)
