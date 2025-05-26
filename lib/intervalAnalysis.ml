@@ -170,11 +170,14 @@ let eval_int_expr (e : Cfg.int_expr) s =
 let cmp is_true is_false x y =
   match (x, y) with
   | Interval.Bottom, _ | _, Interval.Bottom -> RelationalBoolean.bottom
-  | Interval (x1, x2), Interval (y1, y2) when is_true (x1, x2) (y1, y2) ->
-      (Boolean.Boolean true, (VariableMap.empty, VariableMap.empty))
-  | Interval (x1, x2), Interval (y1, y2) when is_false (x1, x2) (y1, y2) ->
-      (Boolean.Boolean false, (VariableMap.empty, VariableMap.empty))
-  | _ -> (Boolean.Top, (VariableMap.empty, VariableMap.empty))
+  | Interval (x1, x2), Interval (y1, y2) ->
+      if is_true (x1, x2) (y1, y2) then
+        (Boolean.Boolean true, (VariableMap.empty, VariableMap.empty))
+      else if is_false (x1, x2) (y1, y2) then
+        (Boolean.Boolean false, (VariableMap.empty, VariableMap.empty))
+      else (Boolean.Top, (VariableMap.empty, VariableMap.empty))
+
+let filter_ident = function Cfg.Identifier i -> Some i | _ -> None
 
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
@@ -192,6 +195,8 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       (* | And -> failwith "and" *)
       (* | Or -> failwith "or") *)
   | Cfg.Compare { left; operator; right } -> (
+      let _left_ident = filter_ident left in
+      let _right_ident = filter_ident right in
       let left' = eval_simple_int_expr left s in
       let right' = eval_simple_int_expr right s in
       match operator with
@@ -228,6 +233,17 @@ let filter variable map =
   in
   BooleanMap.map filter_boolean map
 
+let update_env s int_s =
+  let old_int_s = fst s in
+  let new_int_s =
+    (* TODO: better way to merge the two maps *)
+    (* updates the env prefering the new state *)
+    VariableMap.merge
+      (fun _ a b -> Option.map Option.some b |> Option.value ~default:a)
+      old_int_s int_s
+  in
+  (new_int_s, snd s)
+
 let transfer (n : node) s successors =
   match n.command with
   | Cfg.AssignInt { target; value } ->
@@ -258,10 +274,11 @@ let transfer (n : node) s successors =
                ( node,
                  match (edge, c') with
                  (* TODO: do filtering based on true or false information *)
-                 | True _, (Boolean.Boolean false, _ | Boolean.Bottom, _) ->
+                 | True _, ((Boolean.Boolean false | Boolean.Top), (_t, _)) ->
                      D.bottom
-                 | False _, (Boolean.Boolean true, _ | Boolean.Bottom, _) ->
-                     D.bottom
+                 | _, (Boolean.Bottom, _) -> D.bottom
+                 | False _, ((Boolean.Boolean true | Boolean.Top), (_, _f)) ->
+                     update_env s _f
                  | _ -> s ))
         |> NodeReferenceMap.of_list )
 
