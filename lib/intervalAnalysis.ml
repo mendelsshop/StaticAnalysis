@@ -4,7 +4,7 @@ open Lattice
 module IntervalMap = Map.MapWidenNarrowLattice (VariableMap) (Interval)
 
 module BooleanMap =
-  Map.MapWidenNarrowJoinSemiLattice (VariableMap) (RelationalBoolean)
+  Map.MapWidenNarrowJoinSemiLattice (VariableMap) (ComplexBoolean)
 
 module D = Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (BooleanMap)
 
@@ -23,7 +23,7 @@ module F' =
     end)
 
 (* open F *)
-(* TODO: what is top for relational boolean *)
+(* TODO: what is top for complex boolean *)
 
 let eval_simple_int_expr (e : Cfg.basic_int_expr) s =
   match e with
@@ -36,7 +36,7 @@ let eval_simple_bool_expr (e : Cfg.basic_bool_expr) s =
   | Boolean b -> (Boolean.Boolean b, (VariableMap.empty, VariableMap.empty))
   | Identifier i ->
       VariableMap.find_opt i (snd s)
-      |> Option.value ~default:RelationalBoolean.bottom
+      |> Option.value ~default:ComplexBoolean.bottom
 
 let abs = function
   | Interval.Bottom -> Interval.Bottom
@@ -169,7 +169,7 @@ let eval_int_expr (e : Cfg.int_expr) s =
 
 let cmp is_true is_false x y t f =
   match (x, y) with
-  | Interval.Bottom, _ | _, Interval.Bottom -> RelationalBoolean.bottom
+  | Interval.Bottom, _ | _, Interval.Bottom -> ComplexBoolean.bottom
   | Interval (x1, x2), Interval (y1, y2) ->
       if is_true (x1, x2) (y1, y2) then (Boolean.Boolean true, (t, f))
       else if is_false (x1, x2) (y1, y2) then (Boolean.Boolean false, (t, f))
@@ -201,7 +201,7 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
   (*         ( Boolean.Top, *)
   (*           ( VariableMap.singleton i (Interval.Interval (a, Number.min b n)), *)
   (*             VariableMap.empty ) ) *)
-  (*     | _ -> RelationalBoolean.bottom) *)
+  (*     | _ -> ComplexBoolean.bottom) *)
   (* | Cfg.Compare *)
   (*     { left = Identifier i; operator = LessThen; right = Identifier i' } -> ( *)
   (*     let left_v = eval_simple_int_expr (Identifier i) s in *)
@@ -215,7 +215,7 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
   (*                 (i', Interval.Interval (Number.max a c, d)); *)
   (*               ], *)
   (*             VariableMap.empty ) ) *)
-  (*     | _ -> RelationalBoolean.bottom) *)
+  (*     | _ -> ComplexBoolean.bottom) *)
   | Cfg.Compare { left; operator; right } -> (
       let uncurry f (x, y) = f x y in
       let try_add o =
@@ -354,7 +354,7 @@ let transfer (n : node) s successors =
         |> NodeReferenceMap.of_list )
   | Cfg.Cond c ->
       let c' = eval_bool_expr c s in
-      print_endline (RelationalBoolean.to_string c');
+      print_endline (ComplexBoolean.to_string c');
       ( s,
         successors
         |> List.map (fun (edge, node) ->

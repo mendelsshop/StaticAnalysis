@@ -317,7 +317,7 @@ module Boolean = struct
     | Top -> "top"
 end
 
-module RelationalBoolean = struct
+module ComplexBoolean = struct
   module IntervalMap = Map.MapWidenNarrowLattice (Cfg.VariableMap) (Interval)
 
   module TrueFalse =
