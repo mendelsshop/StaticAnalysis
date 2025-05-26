@@ -167,7 +167,7 @@ let eval_int_expr (e : Cfg.int_expr) s =
       | Divide -> div left' right'
       | Modulo -> failwith "mod")
 
-let cmp ?(t = VariableMap.empty) ?(f = VariableMap.empty) is_true is_false x y =
+let cmp is_true is_false x y t f =
   match (x, y) with
   | Interval.Bottom, _ | _, Interval.Bottom -> RelationalBoolean.bottom
   | Interval (x1, x2), Interval (y1, y2) ->
@@ -202,74 +202,92 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
   (*           ( VariableMap.singleton i (Interval.Interval (a, Number.min b n)), *)
   (*             VariableMap.empty ) ) *)
   (*     | _ -> RelationalBoolean.bottom) *)
-  | Cfg.Compare
-      { left = Identifier i; operator = LessThen; right = Identifier i' } -> (
-      let left_v = eval_simple_int_expr (Identifier i) s in
-      let right_v = eval_simple_int_expr (Identifier i') s in
-      match (left_v, right_v) with
-      | Interval (a, b), Interval (c, d) when Number.compare a d < 0 ->
-          ( Boolean.Top,
-            ( VariableMap.of_list
-                [
-                  (i, Interval.Interval (a, Number.min b d));
-                  (i', Interval.Interval (Number.max a c, d));
-                ],
-              VariableMap.empty ) )
-      | _ -> RelationalBoolean.bottom)
+  (* | Cfg.Compare *)
+  (*     { left = Identifier i; operator = LessThen; right = Identifier i' } -> ( *)
+  (*     let left_v = eval_simple_int_expr (Identifier i) s in *)
+  (*     let right_v = eval_simple_int_expr (Identifier i') s in *)
+  (*     match (left_v, right_v) with *)
+  (*     | Interval (a, b), Interval (c, d) when Number.compare a d < 0 -> *)
+  (*         ( Boolean.Top, *)
+  (*           ( VariableMap.of_list *)
+  (*               [ *)
+  (*                 (i, Interval.Interval (a, Number.min b d)); *)
+  (*                 (i', Interval.Interval (Number.max a c, d)); *)
+  (*               ], *)
+  (*             VariableMap.empty ) ) *)
+  (*     | _ -> RelationalBoolean.bottom) *)
   | Cfg.Compare { left; operator; right } -> (
+      let uncurry f (x, y) = f x y in
+      let try_add o =
+        Option.map (uncurry VariableMap.add) o |> Option.value ~default:Fun.id
+      in
       let left' = eval_simple_int_expr left s in
       let right' = eval_simple_int_expr right s in
-      let left_v =
+      let const4 v _ _ _ _ = v in
+      let pair_rev y x = (x, y) in
+      let t_and_f ?(t = const4 false) ?(t_l = const4 Interval.Bottom)
+          ?(t_r = const4 Interval.Bottom) ?(f = const4 false)
+          ?(f_l = const4 Interval.Bottom) ?(f_r = const4 Interval.Bottom) () =
+        let left_ident = filter_ident left in
+        let right_ident = filter_ident right in
+
+        let map a b c d l r =
+          VariableMap.empty
+          |> try_add (Option.map (pair_rev (l a b c d)) left_ident)
+          |> try_add (Option.map (pair_rev (r a b c d)) right_ident)
+        in
+        let true_map a b c d = map a b c d t_l t_r in
+        let false_map a b c d = map a b c d f_l f_r in
+
         match (left', right') with
-        | Interval (a, b), Interval (_c, d) when Number.compare a d < 0 ->
-            (* might be the right thing for less than equal not less than *)
-            Interval.Interval (a, Number.min b d)
-        | _ -> Interval.Bottom
-      in
-      let right_v =
-        match (left', right') with
-        | Interval (a, b), Interval (c, d) when Number.compare a d < 0 ->
-            (* might be the right thing for less than equal not less than *)
-            Interval.Interval (Number.max b c, d)
-        | _ -> Interval.Bottom
+        | Interval (a, b), Interval (c, d) when t a b c d && f a b c d ->
+            (true_map a b c d, false_map a b c d)
+        | Interval (a, b), Interval (c, d) when t a b c d ->
+            (true_map a b c d, VariableMap.empty)
+        | Interval (a, b), Interval (c, d) when f a b c d ->
+            (VariableMap.empty, false_map a b c d)
+        | _ -> (VariableMap.empty, VariableMap.empty)
       in
 
-      let _left_ident =
-        filter_ident left |> Option.map (fun l -> (l, left_v)) |> Option.to_list
-      in
-      let _right_ident =
-        filter_ident right
-        |> Option.map (fun l -> (l, right_v))
-        |> Option.to_list
-      in
-      let t = _left_ident @ _right_ident |> VariableMap.of_list in
-      if left' == Interval.Bottom || right' == Interval.Bottom then
-        RelationalBoolean.bottom
-      else
-        match operator with
-        | LessThen ->
-            cmp ~t
-              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
-              (* (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 > 0) *)
-              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
-              left' right'
-        | GreaterThan ->
-            cmp
-              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
-              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
-              left' right'
-        | LessThenOrEqual ->
-            cmp
-              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
-              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
-              left' right'
-        | GreaterThanOrEqual ->
-            cmp
-              (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
-              (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
-              left' right'
-        | Equal -> failwith "=="
-        | NotEqual -> failwith "!=")
+      match operator with
+      | LessThen ->
+          uncurry
+            (cmp
+               (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+               (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+               left' right')
+            (t_and_f
+               ~t:(fun a _b _c d -> Number.compare a d < 0)
+               ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+               ())
+      | GreaterThan ->
+          uncurry
+            (cmp
+               (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+               (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+               left' right')
+            (t_and_f
+               ~t:(fun a _b _c d -> Number.compare a d <= 0)
+               ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+               ())
+      | LessThenOrEqual ->
+          uncurry
+            (cmp
+               (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 <= 0)
+               (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 < 0)
+               left' right')
+            (t_and_f ())
+      | GreaterThanOrEqual ->
+          uncurry
+            (cmp
+               (fun (x1, _x2) (_y1, y2) -> Number.compare y2 x1 <= 0)
+               (fun (_x1, x2) (y1, _y2) -> Number.compare x2 y1 < 0)
+               left' right')
+            (t_and_f ())
+      | Equal -> failwith "=="
+      | NotEqual -> failwith "!=")
 
 (* TODO: maybe only kill the variable if the update actually changes the value *)
 let filter variable map =
