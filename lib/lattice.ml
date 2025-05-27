@@ -213,6 +213,14 @@ module Number = struct
     | l, PInfinity | PInfinity, l -> l
     | Integer l, Integer r -> Integer (min l r)
 
+  let lift f = function
+    | NInfinity -> NInfinity
+    | PInfinity -> PInfinity
+    | Integer n -> Integer (f n)
+
+  let add1 = lift (( + ) 1)
+  let sub1 = lift (fun n -> n - 1)
+
   let max l r =
     match (l, r) with
     | NInfinity, l | l, NInfinity -> l

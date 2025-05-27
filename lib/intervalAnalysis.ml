@@ -266,11 +266,13 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                ~t:(fun a _b _c d -> Number.compare a d < 0)
                  (*  [a ... [c ... b ] ... d] *)
                  (* [a, min(b d)] *)
-               ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+               ~t_l:(fun a b _c d ->
+                 Interval.Interval (a, Number.min b (Number.sub1 d)))
                  (*  [a ... [c ... b ] ... d] *)
                  (* [max(b , c) , d)*)
                  (* i.e.:  when this is true our rhs is greater than our end of our lhs *)
-               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+               ~t_r:(fun _a b c d ->
+                 Interval.Interval (Number.max (Number.add1 b) c, d))
                ())
       | GreaterThan ->
           uncurry
@@ -283,8 +285,10 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
              (* or really [c ... {a ... d ] ... b} *)
                ~t:(fun _a b c _d -> Number.compare c b < 0)
                  (*  really [c ... [a ... d ] ... b] *)
-               ~t_l:(fun a b _c d -> Interval.Interval (Number.max a d, b))
-               ~t_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
+               ~t_l:(fun a b _c d ->
+                 Interval.Interval (Number.max a (Number.add1 d), b))
+               ~t_r:(fun _a b c d ->
+                 Interval.Interval (c, Number.min d (Number.sub1 b)))
                ())
       | LessThenOrEqual ->
           uncurry
