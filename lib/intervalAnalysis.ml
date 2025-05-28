@@ -234,7 +234,6 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
           ?(f_l = const4 Interval.Bottom) ?(f_r = const4 Interval.Bottom) () =
         let left_ident = filter_ident left in
         let right_ident = filter_ident right in
-
         let map a b c d l r =
           VariableMap.empty
           |> try_add (Option.map (pair_rev (l a b c d)) left_ident)
@@ -254,6 +253,8 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       in
 
       match operator with
+      (* for false branch it should just be the true branch of the inverse operation 
+         tested with > *)
       | LessThen ->
           uncurry
             (cmp
@@ -269,10 +270,10 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                ~t_l:(fun a b _c d ->
                  Interval.Interval (a, Number.min b (Number.sub1 d)))
                  (*  [a ... [c ... b ] ... d] *)
-                 (* [max(b , c) , d)*)
-                 (* i.e.:  when this is true our rhs is greater than our end of our lhs *)
-               ~t_r:(fun _a b c d ->
-                 Interval.Interval (Number.max (Number.add1 b) c, d))
+                 (* [max(a , c) , d)*)
+                 (* i.e.:  when this is true our rhs is greater than our begin of our lhs *)
+               ~t_r:(fun a _b c d ->
+                 Interval.Interval (Number.max (Number.add1 a) c, d))
                ())
       | GreaterThan ->
           uncurry
@@ -285,10 +286,14 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
              (* or really [c ... {a ... d ] ... b} *)
                ~t:(fun _a b c _d -> Number.compare c b < 0)
                  (*  really [c ... [a ... d ] ... b] *)
-               ~t_l:(fun a b _c d ->
-                 Interval.Interval (Number.max a (Number.add1 d), b))
+               ~t_l:(fun a b c _d ->
+                 Interval.Interval (Number.max a (Number.add1 c), b))
                ~t_r:(fun _a b c d ->
                  Interval.Interval (c, Number.min d (Number.sub1 b)))
+                 (* [a ... {c ... b ] ... d} *)
+               ~f:(fun a _b _c d -> Number.compare a d <= 0)
+               ~f_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
+               ~f_r:(fun a _b c d -> Interval.Interval (Number.max a c, d))
                ())
       | LessThenOrEqual ->
           uncurry
@@ -299,7 +304,7 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
             (t_and_f
                ~t:(fun a _b _c d -> Number.compare a d <= 0)
                ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
-               ~t_r:(fun _a b c d -> Interval.Interval (Number.max b c, d))
+               ~t_r:(fun a _b c d -> Interval.Interval (Number.max a c, d))
                ())
       | GreaterThanOrEqual ->
           uncurry
@@ -312,7 +317,7 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
              (* or really [c ... {a ... d ] ... b} *)
                ~t:(fun a _b _c d -> Number.compare a d >= 0)
                  (*  really [c ... [a ... d ] ... b] *)
-               ~t_l:(fun a b _c d -> Interval.Interval (Number.max a d, b))
+               ~t_l:(fun a b c _d -> Interval.Interval (Number.max a c, b))
                ~t_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
                ())
       | Equal -> failwith "=="
