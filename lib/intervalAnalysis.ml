@@ -274,6 +274,12 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                  (* i.e.:  when this is true our rhs is greater than our begin of our lhs *)
                ~t_r:(fun a _b c d ->
                  Interval.Interval (Number.max (Number.add1 a) c, d))
+                 (* on the number line we have: ...[c, d]...[a, b]... *)
+                 (* or really [c ... {a ... d ] ... b} *)
+               ~f:(fun _a b c _d -> Number.compare c b <= 0)
+                 (*  really [c ... [a ... d ] ... b] *)
+               ~f_l:(fun a b c _d -> Interval.Interval (Number.max a c, b))
+               ~f_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
                ())
       | GreaterThan ->
           uncurry
@@ -305,6 +311,14 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                ~t:(fun a _b _c d -> Number.compare a d <= 0)
                ~t_l:(fun a b _c d -> Interval.Interval (a, Number.min b d))
                ~t_r:(fun a _b c d -> Interval.Interval (Number.max a c, d))
+                 (* on the number line we have: ...[c, d]...[a, b]... *)
+                 (* or really [c ... {a ... d ] ... b} *)
+               ~f:(fun _a b c _d -> Number.compare c b < 0)
+                 (*  really [c ... [a ... d ] ... b] *)
+               ~f_l:(fun a b c _d ->
+                 Interval.Interval (Number.max a (Number.add1 c), b))
+               ~f_r:(fun _a b c d ->
+                 Interval.Interval (c, Number.min d (Number.sub1 b)))
                ())
       | GreaterThanOrEqual ->
           uncurry
@@ -315,10 +329,22 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
             (t_and_f
              (* on the number line we have: ...[c, d]...[a, b]... *)
              (* or really [c ... {a ... d ] ... b} *)
-               ~t:(fun a _b _c d -> Number.compare a d >= 0)
+               ~t:(fun _a b c _d -> Number.compare c b <= 0)
                  (*  really [c ... [a ... d ] ... b] *)
                ~t_l:(fun a b c _d -> Interval.Interval (Number.max a c, b))
                ~t_r:(fun _a b c d -> Interval.Interval (c, Number.min d b))
+                 (*  on the number line we have: ...[a, b]...[c, d]... *)
+                 (* or really [a ... {c ... b ] ... d} *)
+               ~f:(fun a _b _c d -> Number.compare a d < 0)
+                 (*  [a ... [c ... b ] ... d] *)
+                 (* [a, min(b d)] *)
+               ~f_l:(fun a b _c d ->
+                 Interval.Interval (a, Number.min b (Number.sub1 d)))
+                 (*  [a ... [c ... b ] ... d] *)
+                 (* [max(a , c) , d)*)
+                 (* i.e.:  when this is true our rhs is greater than our begin of our lhs *)
+               ~f_r:(fun a _b c d ->
+                 Interval.Interval (Number.max (Number.add1 a) c, d))
                ())
       | Equal -> failwith "=="
       | NotEqual -> failwith "!=")
