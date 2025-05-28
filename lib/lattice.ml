@@ -11,8 +11,11 @@ module type PartiallyOrderdSet = sig
   val leq : t -> t -> bool
 end
 
-module type WidenNarrow = sig
+(* TODO: suffix with semilattice *)
+module type WidenNarrowSemiLattice = sig
   type t
+
+  include PartiallyOrderdSet with type t := t
 
   val widen : t -> t -> t
   val narrow : t -> t -> t
@@ -25,11 +28,24 @@ module type JoinSemiLattice = sig
   val join : t -> t -> t
 end
 
+module type JoinMeetSemiLattice = sig
+  include JoinSemiLattice
+
+  val meet : t -> t -> t
+end
+
 module type WidenNarrowJoinSemiLattice = sig
   type t
 
   include JoinSemiLattice with type t := t
-  include WidenNarrow with type t := t
+  include WidenNarrowSemiLattice with type t := t
+end
+
+module type WidenNarrowJoinMeetSemiLattice = sig
+  type t
+
+  include JoinMeetSemiLattice with type t := t
+  include WidenNarrowSemiLattice with type t := t
 end
 
 module type MeetSemiLattice = sig
@@ -43,7 +59,7 @@ module type WidenNarrowMeetSemiLattice = sig
   type t
 
   include MeetSemiLattice with type t := t
-  include WidenNarrow with type t := t
+  include WidenNarrowSemiLattice with type t := t
 end
 
 module type Lattice = sig
@@ -57,7 +73,7 @@ module type WidenNarrowLattice = sig
   type t
 
   include Lattice with type t := t
-  include WidenNarrow with type t := t
+  include WidenNarrowSemiLattice with type t := t
 end
 
 module Map = struct
@@ -66,8 +82,22 @@ module Map = struct
 
     type t = L.t M.t
 
-    let eq = M.equal L.eq
     let to_string = M.to_string L.to_string
+    let eq = M.equal L.eq
+
+    (* meant for join like operations *)
+    let point_wise f =
+      M.merge (fun _ x y ->
+          match (x, y) with
+          | None, x | x, None -> x
+          | Some x, Some y -> f x y |> Option.some)
+
+    (* meant for meet like operations *)
+    let point_wise' f =
+      M.merge (fun _ x y ->
+          match (x, y) with
+          | None, _ | _, None -> None
+          | Some x, Some y -> f x y |> Option.some)
   end
 
   module MapPartiallyOrderdSet (M : MapExt.SExt) (L : PartiallyOrderdSet) =
@@ -78,16 +108,27 @@ module Map = struct
   end
 
   module MapJoinSemiLattice (M : MapExt.SExt) (L : JoinSemiLattice) = struct
-    let point_wise f =
-      M.merge (fun _ x y ->
-          let x = Option.value ~default:L.bottom x in
-          let y = Option.value ~default:L.bottom y in
-          f x y |> Option.some)
-
     include MapPartiallyOrderdSet (M) (L)
 
     let bottom = M.empty
     let join = point_wise L.join
+  end
+
+  module MapJoinMeetSemiLattice (M : MapExt.SExt) (L : JoinMeetSemiLattice) =
+  struct
+    include MapJoinSemiLattice (M) (L)
+
+    let meet = point_wise' L.meet
+  end
+
+  module MapWidenNarrowSemiLattice
+      (M : MapExt.SExt)
+      (L : WidenNarrowSemiLattice) =
+  struct
+    include MapPartiallyOrderdSet (M) (L)
+
+    let widen = point_wise L.widen
+    let narrow = point_wise' L.narrow
   end
 
   module MapWidenNarrowJoinSemiLattice
@@ -95,23 +136,15 @@ module Map = struct
       (L : WidenNarrowJoinSemiLattice) =
   struct
     include MapJoinSemiLattice (M) (L)
-
-    let widen = point_wise L.widen
-    let narrow = point_wise L.narrow
+    include MapWidenNarrowSemiLattice (M) (L)
   end
 
-  (*doesn't have top*)
-
-  module MapLattice (M : MapExt.SExt) (L : Lattice) = struct
-    include MapJoinSemiLattice (M) (L)
-
-    let meet = point_wise L.meet
-  end
-
-  module MapWidenNarrowLattice (M : MapExt.SExt) (L : WidenNarrowLattice) =
+  module MapWidenNarrowJoinMeetSemiLattice
+      (M : MapExt.SExt)
+      (L : WidenNarrowJoinMeetSemiLattice) =
   struct
-    include MapWidenNarrowJoinSemiLattice (M) (L)
-    include MapLattice (M) (L)
+    include MapJoinMeetSemiLattice (M) (L)
+    include MapWidenNarrowSemiLattice (M) (L)
   end
 end
 
@@ -141,12 +174,31 @@ module Product = struct
     let join = pair_wise L.join L1.join
   end
 
+  module ProductJoinMeetSemiLattice
+      (L : JoinMeetSemiLattice)
+      (L1 : JoinMeetSemiLattice) =
+  struct
+    include ProductJoinSemiLattice (L) (L1)
+
+    let meet = pair_wise L.meet L1.meet
+  end
+
   module ProductMeetSemiLattice (L : MeetSemiLattice) (L1 : MeetSemiLattice) =
   struct
     include ProductPartiallyOrderdSet (L) (L1)
 
-    let bottom = (L.top, L1.top)
-    let join = pair_wise L.meet L1.meet
+    let top = (L.top, L1.top)
+    let meet = pair_wise L.meet L1.meet
+  end
+
+  module ProductWidenNarrowSemiLattice
+      (L : WidenNarrowSemiLattice)
+      (L1 : WidenNarrowSemiLattice) =
+  struct
+    include ProductPartiallyOrderdSet (L) (L1)
+
+    let widen = pair_wise L.widen L1.widen
+    let narrow = pair_wise L.widen L1.widen
   end
 
   module ProductWidenNarrowJoinSemiLattice
@@ -154,9 +206,15 @@ module Product = struct
       (L1 : WidenNarrowJoinSemiLattice) =
   struct
     include ProductJoinSemiLattice (L) (L1)
+    include ProductWidenNarrowSemiLattice (L) (L1)
+  end
 
-    let widen = pair_wise L.widen L1.widen
-    let narrow = pair_wise L.widen L1.widen
+  module ProductWidenNarrowJoinMeetSemiLattice
+      (L : WidenNarrowJoinMeetSemiLattice)
+      (L1 : WidenNarrowJoinMeetSemiLattice) =
+  struct
+    include ProductJoinMeetSemiLattice (L) (L1)
+    include ProductWidenNarrowSemiLattice (L) (L1)
   end
 
   module ProductWidenNarrowMeetSemiLattice
@@ -164,9 +222,7 @@ module Product = struct
       (L1 : WidenNarrowMeetSemiLattice) =
   struct
     include ProductMeetSemiLattice (L) (L1)
-
-    let widen = pair_wise L.widen L1.widen
-    let narrow = pair_wise L.widen L1.widen
+    include ProductWidenNarrowSemiLattice (L) (L1)
   end
 
   module ProductLattice (L : Lattice) (L1 : Lattice) = struct
@@ -174,7 +230,7 @@ module Product = struct
     include ProductJoinSemiLattice (L) (L1)
   end
 
-  module WidenNarrowProductLattice
+  module ProductWidenNarrowLattice
       (L : WidenNarrowLattice)
       (L1 : WidenNarrowLattice) =
   struct
@@ -326,13 +382,14 @@ module Boolean = struct
 end
 
 module ComplexBoolean = struct
-  module IntervalMap = Map.MapWidenNarrowLattice (Cfg.VariableMap) (Interval)
+  module IntervalMap =
+    Map.MapWidenNarrowJoinMeetSemiLattice (Cfg.VariableMap) (Interval)
 
   module TrueFalse =
-    Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (IntervalMap)
+    Product.ProductWidenNarrowJoinMeetSemiLattice (IntervalMap) (IntervalMap)
 
   module Boolean =
-    Product.ProductWidenNarrowJoinSemiLattice (Boolean) (TrueFalse)
+    Product.ProductWidenNarrowJoinMeetSemiLattice (Boolean) (TrueFalse)
 
   include Boolean
 end

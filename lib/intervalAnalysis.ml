@@ -1,12 +1,15 @@
 open Fixpoint
 open Cfg
 open Lattice
-module IntervalMap = Map.MapWidenNarrowLattice (VariableMap) (Interval)
+
+module IntervalMap =
+  Map.MapWidenNarrowJoinMeetSemiLattice (VariableMap) (Interval)
 
 module BooleanMap =
-  Map.MapWidenNarrowJoinSemiLattice (VariableMap) (ComplexBoolean)
+  Map.MapWidenNarrowJoinMeetSemiLattice (VariableMap) (ComplexBoolean)
 
-module D = Product.ProductWidenNarrowJoinSemiLattice (IntervalMap) (BooleanMap)
+module D =
+  Product.ProductWidenNarrowJoinMeetSemiLattice (IntervalMap) (BooleanMap)
 
 module F =
   Widen'
@@ -187,15 +190,15 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       (* even if the boolean value is unknown we can still flip the filtering values *)
       | Top, (t, f) -> (Boolean.Top, (f, t))
       | Bottom, _ -> ComplexBoolean.bottom)
-  | Cfg.BinaryOperator { left; operator = _; right } -> (
-      let _left' = eval_simple_bool_expr left s in
-      let _right' = eval_simple_bool_expr right s in
-      match (_left', _right') with
-      | (Boolean.Bottom, _), _ | _, (Boolean.Bottom, _) -> ComplexBoolean.bottom
-      | _ -> (Boolean.Top, (VariableMap.empty, VariableMap.empty)))
-  (* match operator with *)
-  (* | And -> failwith "and" *)
-  (* | Or -> failwith "or") *)
+  | Cfg.BinaryOperator { left; operator; right } -> (
+      let left' = eval_simple_bool_expr left s in
+      let right' = eval_simple_bool_expr right s in
+      match operator with
+      | And when fst left' = Boolean.Bottom || fst right' == Boolean.Bottom ->
+          ComplexBoolean.bottom
+      (* meet is correct b/c we already eliminated bottom *)
+      | And -> ComplexBoolean.meet left' right'
+      | Or -> ComplexBoolean.join left' right')
   (* | Cfg.Compare { left = Identifier i; operator = LessThen; right = Integer n } *)
   (*   -> ( *)
   (*     let left_v = eval_simple_int_expr (Identifier i) s in *)
