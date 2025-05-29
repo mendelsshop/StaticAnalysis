@@ -349,8 +349,40 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                ~f_r:(fun a _b c d ->
                  Interval.Interval (Number.max (Number.add1 a) c, d))
                ())
-      | Equal -> failwith "=="
-      | NotEqual -> failwith "!=")
+      | Equal ->
+          let meet = Interval.meet left' right' in
+          uncurry
+            (cmp
+               (* probably never 100% true unless two ranges are equal? *)
+               (fun (x1, x2) (y1, y2) -> x1 = y1 && x2 = y2)
+               (fun (_x1, _x2) (_y1, _y2) -> meet = Bottom)
+               left' right')
+            (t_and_f
+             (* on the number line we have: ...[c, d]...[a, b]... *)
+             (* or really [c ... {a ... d ] ... b} *)
+             (* or the number line we have: ...[a, b]...[c, d]... *)
+             (* or really [a ... {c ... b ] ... d} *)
+               ~t:(fun _a _b _c _d -> true)
+               ~t_l:(fun _a _b _c _d -> meet)
+               ~t_r:(fun _a _b _c _d -> meet)
+               ())
+      | NotEqual ->
+          let meet = Interval.meet left' right' in
+          uncurry
+            (cmp
+               (fun (_x1, _x2) (_y1, _y2) -> meet = Bottom)
+               (* probably never 100% true unless two ranges are equal? *)
+               (fun (x1, x2) (y1, y2) -> x1 = y1 && x2 = y2)
+               left' right')
+            (t_and_f
+             (* on the number line we have: ...[c, d]...[a, b]... *)
+             (* or really [c ... {a ... d ] ... b} *)
+             (* or the number line we have: ...[a, b]...[c, d]... *)
+             (* or really [a ... {c ... b ] ... d} *)
+               ~f:(fun _a _b _c _d -> true)
+               ~f_l:(fun _a _b _c _d -> meet)
+               ~f_r:(fun _a _b _c _d -> meet)
+               ()))
 
 (* TODO: maybe only kill the variable if the update actually changes the value *)
 let filter variable map =
