@@ -375,6 +375,12 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                (fun (x1, x2) (y1, y2) -> x1 = y1 && x2 = y2)
                left' right')
             (t_and_f
+             (* if true *)
+             (* few cases: *)
+             (* [a, b] ... [c, d] or [c, d] ... [a, b] - not really interestring (doesn't filter any values out) *)
+             (* [a ... {c ... b] ... d} or [c ... {a ... d] ... b} *)
+             (* theoritcally this means (we can use the same idea we are using for) either left < right or left > right *)
+             (* if false *)
              (* on the number line we have: ...[c, d]...[a, b]... *)
              (* or really [c ... {a ... d ] ... b} *)
              (* or the number line we have: ...[a, b]...[c, d]... *)
