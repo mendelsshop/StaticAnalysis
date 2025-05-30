@@ -180,6 +180,16 @@ let cmp is_true is_false x y t f =
 
 let filter_ident = function Cfg.Identifier i -> Some i | _ -> None
 
+let bottomize = function
+  | Interval.Interval (a, b) when Number.compare a b > 0 -> Interval.Bottom
+  | i -> i
+
+let bind_outside _a _b _c _d =
+  bottomize
+  @@ Interval.Interval
+       ( (if _c <= _a && _d >= _a then _c else _a),
+         if _c <= _b && _d >= _b then _d else _b )
+
 let eval_bool_expr (e : Cfg.bool_expr) s =
   match e with
   | Cfg.Basic e -> eval_simple_bool_expr e s
@@ -379,12 +389,20 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
              (* few cases: *)
              (* [a, b] ... [c, d] or [c, d] ... [a, b] - not really interestring (doesn't filter any values out) *)
              (* [a ... {c ... b] ... d} or [c ... {a ... d] ... b} *)
-             (* theoritcally this means (we can use the same idea we are using for) either left < right or left > right *)
-             (* if false *)
-             (* on the number line we have: ...[c, d]...[a, b]... *)
-             (* or really [c ... {a ... d ] ... b} *)
-             (* or the number line we have: ...[a, b]...[c, d]... *)
-             (* or really [a ... {c ... b ] ... d} *)
+             (* filters to [a, c] and [b, d] or [c, a] and [d, b] *)
+             (* the last case is: [a ... {c ... d} ... b] or [c ... {a ... b} ... d] *)
+             (* filters to [a, c] or [d, b] and for rhs technically bottom or [c, a] or [b, d] and for lhs technically bottom *)
+             (* also maybe should not include some end points i.e. add 1/sub 1 in some cases *)
+               ~t:(fun _a _b _c _d -> true)
+               ~t_l:bind_outside
+                 ~t_r:(fun _a _b _c _d -> bind_outside _c _d _a _b)
+               (* ~t_r:(const4 right') *)
+                 (* theoritcally this means (we can use the same idea we are using for) either left < right or left > right *)
+                 (* if false *)
+                 (* on the number line we have: ...[c, d]...[a, b]... *)
+                 (* or really [c ... {a ... d ] ... b} *)
+                 (* or the number line we have: ...[a, b]...[c, d]... *)
+                 (* or really [a ... {c ... b ] ... d} *)
                ~f:(fun _a _b _c _d -> true)
                ~f_l:(fun _a _b _c _d -> meet)
                ~f_r:(fun _a _b _c _d -> meet)
