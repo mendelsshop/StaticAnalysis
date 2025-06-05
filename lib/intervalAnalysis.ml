@@ -375,6 +375,9 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
                ~t:(fun _a _b _c _d -> true)
                ~t_l:(fun _a _b _c _d -> meet)
                ~t_r:(fun _a _b _c _d -> meet)
+               ~f:(fun _a _b _c _d -> true)
+               ~f_l:bind_outside
+               ~f_r:(fun _a _b _c _d -> bind_outside _c _d _a _b)
                ())
       | NotEqual ->
           let meet = Interval.meet left' right' in
@@ -395,8 +398,8 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
              (* also maybe should not include some end points i.e. add 1/sub 1 in some cases *)
                ~t:(fun _a _b _c _d -> true)
                ~t_l:bind_outside
-                 ~t_r:(fun _a _b _c _d -> bind_outside _c _d _a _b)
-               (* ~t_r:(const4 right') *)
+               ~t_r:(fun _a _b _c _d -> bind_outside _c _d _a _b)
+                 (* ~t_r:(const4 right') *)
                  (* theoritcally this means (we can use the same idea we are using for) either left < right or left > right *)
                  (* if false *)
                  (* on the number line we have: ...[c, d]...[a, b]... *)
