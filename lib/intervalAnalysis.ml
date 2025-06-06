@@ -238,10 +238,13 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
       let try_add o =
         Option.map (uncurry VariableMap.add) o |> Option.value ~default:Fun.id
       in
+      let filter f = function Some x when f x -> Some x | _ -> None in
       let left' = eval_simple_int_expr left s in
       let right' = eval_simple_int_expr right s in
       let const4 v _ _ _ _ = v in
       let pair_rev y x = (x, y) in
+      let second_is f (_, y) = f y in
+      let not_bottom = function Interval.Bottom -> false | _ -> true in
       let t_and_f ?(t = const4 false) ?(t_l = const4 Interval.Bottom)
           ?(t_r = const4 Interval.Bottom) ?(f = const4 false)
           ?(f_l = const4 Interval.Bottom) ?(f_r = const4 Interval.Bottom) () =
@@ -249,8 +252,15 @@ let eval_bool_expr (e : Cfg.bool_expr) s =
         let right_ident = filter_ident right in
         let map a b c d l r =
           VariableMap.empty
-          |> try_add (Option.map (pair_rev (l a b c d)) left_ident)
-          |> try_add (Option.map (pair_rev (r a b c d)) right_ident)
+          |> try_add
+               (left_ident
+               |> Option.map (pair_rev (l a b c d))
+               |> filter (second_is not_bottom)
+               )
+          |> try_add
+               (right_ident
+               |> Option.map (pair_rev (r a b c d))
+               |> filter (second_is not_bottom))
         in
         let true_map a b c d = map a b c d t_l t_r in
         let false_map a b c d = map a b c d f_l f_r in
